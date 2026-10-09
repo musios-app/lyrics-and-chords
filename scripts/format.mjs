@@ -10,6 +10,19 @@ import {
 } from "chordsheetjs";
 
 const args = process.argv.slice(2);
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`Usage: node scripts/parse.mjs <song> | node scripts/format.mjs [--as text | chordpro | chords-over-words]
+
+Writes the parsed song (the JSON from parse.mjs, on standard input) back out as text.
+Chord names are written exactly as they were read.
+
+Options:
+  --as NAME   text (default), chordpro or chords-over-words.
+  --help      Show this message.
+
+Exit codes: 0 done; 1 could not format (input is not parsed song JSON); 2 unknown output.`);
+  process.exit(0);
+}
 const as = args.includes("--as") ? args[args.indexOf("--as") + 1] : "text";
 const formatters = {
   text: TextFormatter,

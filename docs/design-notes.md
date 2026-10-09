@@ -10,6 +10,8 @@ Read lyric and chord sheets in many layouts and return one normalised JSON struc
 
 ## Decided
 
+- **The song object is ChordSheetJS's own JSON** (`{ "type": "chordSheet", "lines": [...] }`), exactly as `load` returns it in `song`. We do not define a schema of our own, and the Songwriting Coach has no JSON of its own yet, so the Coach adapts to this one (Andrew, 9 Oct 2026). Annotations use what that JSON already has: the `annotation` field on a chord-and-lyric item, and `comment` tags. This closes the "options on hold" question below.
+
 - Separate public open-source skill, built on ChordSheetJS (9 Oct 2026).
 - Name: "Lyrics & Chords"; slug and repo `lyrics-and-chords`. The slug has no ampersand because skill names allow only lowercase letters, numbers and hyphens.
 - Licence: GPL-2.0-only (9 Oct 2026). ChordSheetJS 18.0.0 is GPL-2.0-only (checked in its `package.json` and LICENSE file), so the bundled whole is distributed under version 2. The processor's own code matches, which avoids a mixed "only" and "or later" position. If ChordSheetJS is ever dropped, the licence of our own code can be revisited (we are the only author). Not legal advice.

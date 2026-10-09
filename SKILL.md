@@ -2,11 +2,14 @@
 name: lyrics-and-chords
 description: Reads song lyric and chord sheets (plain lyrics, chords above words, inline chords, ChordPro, saved chord-site pages) and returns them as structured JSON, or says plainly what it could not resolve. Runs locally; the only network use is fetching a page whose address the user gives. Use to parse, convert or check a lyric or chord file, not to critique or write lyrics.
 license: GPL-2.0-only
+compatibility: Requires Node.js 18 or later. No network use except fetching a web address the user gives.
+metadata:
+  version: "0.1.0"
 ---
 
 # Lyrics & Chords (provisional)
 
-PROVISIONAL: this file defines what the skill will do. Four scripts exist (see "What works now"); the rest is planned. Each capability says where it is expected to come from and whether it is built. Change this file first, then build to it. Function signatures are in `docs/functions.md`.
+Version 0.1, provisional. The scripts under "What works now" are built; capabilities marked planned are not.
 
 ## What works now
 
@@ -29,7 +32,7 @@ node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 
 Parse also does three repairs the library does not (it also trims the padding spaces the readers leave on chords): a line of two or more bracketed chords in an Ultimate Guitar style sheet is read as a chord line (the library would drop the chords), and a section runs from its header to the next header, across blank lines (the library ends it at the first blank line). A header the library keeps only as a comment, such as POST-CHORUS, becomes a section.
 
-Not yet built: pages from sites other than Genius, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
+Not yet built: pages from sites other than Genius, labelling sections, annotations read from the text (such as backing vocals), Word files. The scripts are self-contained and need only Node.js 18 or later.
 
 ## What it is for
 
@@ -71,7 +74,7 @@ Header, chord line, tab line, metadata, directive, annotation (`x2`, capo, `N.C.
 
 Built, in ChordSheetJS's own shape: `{ "type": "chordSheet", "lines": [...] }`, where each lyric line is a list of chord-and-lyric pairs and the song facts are tag lines at the top. (library)
 
-Planned, not decided: our own structure with sections (a label and a confidence; no normalised section codes, decided 9 Oct 2026, because the Songwriting Coach does not need them), numbered lines carrying chords and annotations, `schema_version`, `format_detected`, `unparsed_blocks` and `parse_notes`. See `docs/design-notes.md`. (own)
+Decided (9 Oct 2026): this is the output. We define no schema of our own, and no normalised section codes. Sections are the `start_of_...` / `end_of_...` tags; annotations use the `annotation` field and `comment` tags. The Songwriting Coach adapts to this JSON. (library)
 
 ### 4. Keep the meaning of the lyrics
 
@@ -95,7 +98,7 @@ Built (`add-metadata.mjs`): title, artist, credits, key, tempo and the other fac
 
 ### 9. Load
 
-Built for pasted text, files, saved Genius pages and Genius web addresses (`load.mjs`); other sites are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
+Built for pasted text, files, saved Genius pages and Genius web addresses (`load.mjs`); other sites are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. (own plus model)
 
 ## Title, credits and other facts
 
@@ -151,7 +154,7 @@ Not every problem raises an error. A header with a missing bracket (`[Verse 1`) 
 
 ## Not decided
 
-JSON schema details; v1 input list (Word, Nashville); output formats beyond JSON; bundling method for the script.
+v1 input list (Word, Nashville, sites other than Genius); bundling method for the scripts.
 
 ## Licence
 

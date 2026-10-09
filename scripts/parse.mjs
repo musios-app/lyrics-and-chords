@@ -12,6 +12,21 @@ import {
 import { CHORD } from "./chord-words.mjs";
 
 const args = process.argv.slice(2);
+if (args.includes("--help") || args.includes("-h")) {
+  console.log(`Usage: node scripts/parse.mjs <file>        (or pipe the text in on standard input)
+       node scripts/parse.mjs --format chordpro | chords-over-words | ultimate-guitar <file>
+
+Reads one lyric or chord sheet and prints ChordSheetJS's JSON on standard output.
+The format is picked from the text unless --format is given. Notes (the format picked, repairs made)
+go to standard error.
+
+Repairs made on the way: a line of two or more bracketed chords in an Ultimate Guitar style sheet is
+read as a chord line; a section runs from its header to the next header, across blank lines; padding
+spaces on chords are trimmed.
+
+Exit codes: 0 done; 1 could not parse (the message gives the line, column and a hint); 2 unknown format.`);
+  process.exit(0);
+}
 let forced = null;
 const files = [];
 for (let i = 0; i < args.length; i++) {

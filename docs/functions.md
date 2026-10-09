@@ -6,7 +6,7 @@ The skill's main capabilities, written as functions: what goes in, what comes ou
 
 Status words: **exists** (a script runs today), **planned** (not built), **Claude** (done by the assistant's judgement, not by a script).
 
-Open point: the shape of `Song` is not decided. Today it is ChordSheetJS's own JSON (`{ type: "chordSheet", lines: [...] }`). See `design-notes.md` for the options on hold.
+The shape of `Song` is decided (9 Oct 2026): ChordSheetJS's own JSON, `{ type: "chordSheet", lines: [...] }`, exactly as `load` returns it. We define no schema of our own; the Songwriting Coach adapts to it.
 
 ## Shared types
 

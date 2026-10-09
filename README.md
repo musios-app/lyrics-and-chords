@@ -4,7 +4,22 @@ Slug: `lyrics-and-chords`. Licence: GPL-2.0-only (see `LICENSE`).
 
 A skill that reads song lyric and chord sheets in many layouts and returns them as normalised JSON, or says plainly what it could not resolve. It runs locally; the only network use is fetching a page at an address the user gives, and the user is responsible for having the right to use it. It is built on ChordSheetJS.
 
-Status: provisional. `SKILL.md` defines the capabilities; nothing is built yet. Design notes: [docs/design-notes.md](docs/design-notes.md).
+Status: version 0.1, provisional. `SKILL.md` defines the capabilities; the scripts for loading, checking and writing out songs are built. Design notes: [docs/design-notes.md](docs/design-notes.md).
+
+## Build and install
+
+```
+npm install            # once: fetches ChordSheetJS and the bundler
+python3 build.py       # builds dist/lyrics-and-chords.skill
+```
+
+The build checks `SKILL.md` against the Agent Skills rules, bundles ChordSheetJS into one file so the skill needs no `npm install`, copies the scripts, writes `NOTICE.txt`, zips the folder, and then runs the packaged scripts from a folder outside this repo as a test. `dist/` is generated: never edit it by hand.
+
+The package needs only Node.js 18 or later. To install it:
+- **Claude Code:** unzip `dist/lyrics-and-chords.skill` into `~/.claude/skills/`, so that `~/.claude/skills/lyrics-and-chords/SKILL.md` exists.
+- **claude.ai:** upload the `.skill` file in Customize > Skills.
+
+The GPL asks that anyone who receives the package can get the source. Until this repository is public, share the `.skill` file only with people you also give the repository to.
 
 ## ChordSheetJS
 

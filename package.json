@@ -1,12 +1,14 @@
 {
   "name": "lyrics-and-chords",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Lyrics & Chords skill: reads lyric and chord sheets and returns normalised JSON",
+  "description": "Lyrics & Chords skill: loads song lyric and chord sheets and returns ChordSheetJS JSON",
   "license": "GPL-2.0-only",
   "type": "module",
   "dependencies": {
-    "chordsheetjs": "^18.0.0",
+    "chordsheetjs": "^18.0.0"
+  },
+  "devDependencies": {
     "esbuild": "^0.28.2"
   }
 }
