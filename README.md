@@ -10,6 +10,7 @@ Status: version 0.1, provisional. `SKILL.md` defines the capabilities; the scrip
 
 ```
 npm install            # once: fetches ChordSheetJS and the bundler
+npm test               # the tests (invented lyrics only)
 python3 build.py       # builds dist/lyrics-and-chords.skill
 ```
 

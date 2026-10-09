@@ -14,7 +14,9 @@ if (args.includes("--help") || args.includes("-h")) {
 Checks that the lyric lines in the parsed song match the original text:
   - every lyric line of the song is found in the original, in order, unchanged;
   - no lyric line of the original is missing from the song;
-  - every chord of the original is still in the song (counted, not placed).
+  - every chord of the original is still in the song (counted, not placed);
+  - nothing in the song's chord positions is something other than a chord;
+  - the song has at least as many sections as the original has [Header] lines.
 Spacing is ignored: indentation, runs of spaces, trailing spaces and tabs, and a
 non-breaking space all count as one ordinary space. Words, punctuation and every
 other character are compared exactly. Nothing is corrected.
@@ -38,6 +40,10 @@ Each problem has a "kind":
   "extra"    a song line with no counterpart in the original. Fields: lyricLine, text.
   "chords-missing"  a chord that appears more often in the original than in the song.
              Fields: chord, inOriginal, inSong, lines (original line numbers).
+  "not-a-chord"  something in the song's chord positions that is not a chord name (a section
+             header or an ordinary word read as a chord). Fields: value, songLines.
+  "sections-missing"  the original has more [Header] lines than the song has sections.
+             Fields: headersInOriginal, sectionsInSong, lines (original line numbers).
 
 Exit codes: 0 match; 1 mismatch; 2 bad option or unreadable input.`);
   process.exit(0);
@@ -135,6 +141,9 @@ const accounted = (o) => {
   });
 };
 // Chords: every chord in the original should still be in the song.
+const sectionLabels = new Set(
+  song.lines.flatMap((l) => l.items.filter((x) => x.type === "tag" && /^start_of_/.test(x.name)).map((x) => String(x.value).trim().toLowerCase())),
+);
 const chordsIn = (text) => {
   const counts = new Map();
   const add = (token, line) => {
@@ -145,7 +154,13 @@ const chordsIn = (text) => {
     if (!c.lines.includes(line)) c.lines.push(line);
   };
   text.split("\n").forEach((raw, i) => {
-    for (const m of raw.matchAll(/\[([^\]\n]*)\]/g)) m[1].split(/\s+/).filter(Boolean).forEach((t) => add(t, i + 1));
+    // A bracket alone on its line that names a section of the song ([B], [A]) is a header, not a chord.
+    const alone = raw.trim().match(/^\[([^\]\n]*)\]$/);
+    if (alone && sectionLabels.has(alone[1].trim().toLowerCase())) return;
+    for (const m of raw.matchAll(/\[([^\]\n]*)\]/g)) {
+      const words = m[1].split(/\s+/).filter(Boolean);
+      if (words.length && words.every((w) => CHORD.test(w))) words.forEach((t) => add(t, i + 1));
+    }
     if (isChordLine(raw) && !raw.includes("[")) raw.trim().split(/\s+/).forEach((t) => add(t, i + 1));
   });
   return counts;
@@ -158,6 +173,27 @@ for (const line of song.lines) {
     for (const t of x.chords.trim().split(/\s+/).filter(Boolean)) if (CHORD.test(t)) songChords.set(t, (songChords.get(t) || 0) + 1);
   }
 }
+
+// A "chord" in the song that is not a chord name (a header or a word read as a chord).
+const notChords = new Map();
+song.lines.forEach((line, i) => {
+  for (const x of line.items) {
+    if (x.type !== "chordLyricsPair" || !x.chords) continue;
+    const value = x.chords.trim();
+    if (value && !value.split(/\s+/).every((t) => CHORD.test(t) || MARK.test(t))) {
+      if (!notChords.has(value)) notChords.set(value, []);
+      notChords.get(value).push(i + 1);
+    }
+  }
+});
+
+// Section headers in the original ([Label] on a line of its own, with something in it that is not a
+// chord) against the sections in the song.
+const headerLines = origLines.filter((o) => {
+  const m = o.raw.trim().match(/^\[([^\]]+)\]$/);
+  return m && !m[1].trim().split(/\s+/).every((w) => CHORD.test(w));
+});
+const sectionsInSong = song.lines.reduce((n, l) => n + l.items.filter((x) => x.type === "tag" && /^start_of_/.test(x.name)).length, 0);
 
 const droppedOriginal = origLines.map((_, k) => k).filter((k) => !matchedOriginal.has(k) && !accounted(origLines[k]));
 
@@ -210,6 +246,12 @@ for (const [chord, { count, lines }] of originalChords) {
   const have = songChords.get(chord) || 0;
   if (have < count) found.push([lines[0] - 1, { kind: "chords-missing", chord, inOriginal: count, inSong: have, lines }]);
 }
+for (const [value, songLines] of notChords) {
+  found.push([songLines[0], { kind: "not-a-chord", value, songLines }]);
+}
+if (headerLines.length && sectionsInSong < headerLines.length) {
+  found.push([headerLines[0].n - 1, { kind: "sections-missing", headersInOriginal: headerLines.length, sectionsInSong, lines: headerLines.map((h) => h.n) }]);
+}
 const problems = found.sort((a, b) => a[0] - b[0]).map((p) => p[1]);
 
 const result = { ok: problems.length === 0, lyricLines: lyrics.length, problems };
@@ -224,7 +266,7 @@ if (setAsideLines) {
 const count = (kind) => problems.filter((p) => p.kind === kind).length;
 const summary = result.ok
   ? `check: ok (${lyrics.length} lyric lines match)`
-  : `check: ${problems.length} problem(s): ${count("changed")} changed, ${count("missing")} missing, ${count("extra")} extra, ${count("chords-missing")} chord(s) lost (see output)`;
+  : `check: ${problems.length} problem(s): ${count("changed")} changed, ${count("missing")} missing, ${count("extra")} extra, ${count("chords-missing")} chord(s) lost, ${count("not-a-chord")} not-a-chord, ${count("sections-missing")} sections missing (see output)`;
 // Write everything out before exiting (a large result cut short would be unreadable), then the summary.
 process.stdout.write(JSON.stringify(result, null, 2) + "\n", () => {
   console.error(summary);

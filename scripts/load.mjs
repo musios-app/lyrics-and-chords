@@ -28,7 +28,8 @@ Options:
   --facts FILE      JSON file of song facts (title, artist, lyricist, composer, date, ... see add-metadata.mjs).
                     For a web page these override the facts read from the page.
   --set-aside LIST  Original line numbers that are not lyrics (a title, a credit line), such as 1,2.
-  --format NAME     Force the reader: chordpro, chords-over-words or ultimate-guitar.
+  --format NAME     Force the reader: chordpro, chords-over-words, ultimate-guitar or lyrics-only.
+                    (A web page is read as lyrics-only: no chords.)
   --as NAME         Also write the song out: text, chordpro or chords-over-words.
   --output FILE     With --as, save the written song to FILE instead of putting it in the result.
   --help            Show this message.
@@ -163,7 +164,10 @@ try {
   }
 
   // 1. Read the sheet.
-  const parsed = run("parse.mjs", [original, ...(value("--format") ? ["--format", value("--format")] : [])]);
+  // A web page's lyrics have no chords, so they never go to a chord reader (a performer's name such as
+  // "Ann B" would be read as a chord). Pages use the lyrics-only reader unless --format says otherwise.
+  const readerFormat = value("--format") || (result.source ? "lyrics-only" : null);
+  const parsed = run("parse.mjs", [original, ...(readerFormat ? ["--format", readerFormat] : [])]);
   result.notes.push(...lines(parsed.stderr).filter((l) => l.startsWith("note:") || l.startsWith("format:")));
   if (parsed.status !== 0) fail("parse", parsed.stderr.trim());
   let song = parsed.stdout;

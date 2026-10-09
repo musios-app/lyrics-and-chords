@@ -94,6 +94,7 @@ parse(input: { text: string } | { file: string }, options?: { format?: Format })
 - Reads one well-formed sheet. Picks ChordPro, chords over words or Ultimate Guitar style itself unless told.
 - Keeps every lyric word, space and line break exactly.
 - Does not find sections, titles or metadata in plain lyrics; that is `labelSections` and `addMetadata`.
+- Formats: ChordPro, chords over words, Ultimate Guitar style, and `lyrics-only` (text with no chords: `[Label: performers]` becomes the section "Label" plus a `comment` holding the performers; used for web pages).
 - Errors: unknown format → exit 2. Text the parser cannot read → exit 1 with a message that gives the line and column where it stopped, what it found and expected, the offending line and the one before it with a marker, a hint when the line before has an unclosed `{` or `[`, and, when the format was guessed, the other formats to try with `--format`.
 
 ## 2. extractPage (exists for Genius: `scripts/read-page.mjs`)
@@ -157,7 +158,8 @@ check(original: string, song: Song): {
 - Metadata and section lines are ignored; only lyric lines count.
 - A failure means the caller must stop and fall back or ask the writer.
 - Does not correct anything, including look-alike characters.
-- Each problem is one of three kinds, so a caller can act on it: `changed` (a song line and the original line it came from, with `onlyInOriginal` and `onlyInSong` word lists, and `extraBefore` or `extraAfter` when the original line is the song line plus extra text, such as page clutter), `missing` (an original lyric line with no counterpart in the song) and `extra` (a song line with no counterpart in the original). Original line numbers and song lyric line numbers are both given.
+- Besides lyrics it checks that no header was turned into a chord: `not-a-chord` (a chord position holding something that is not a chord name) and `sections-missing` (fewer sections than `[Header]` lines in the original). A bracket counts as chords only if every word in it is a chord, so `[Verse 1: Ann B]` is a header.
+- Each problem is one of these kinds, so a caller can act on it: `changed` (a song line and the original line it came from, with `onlyInOriginal` and `onlyInSong` word lists, and `extraBefore` or `extraAfter` when the original line is the song line plus extra text, such as page clutter), `missing` (an original lyric line with no counterpart in the song) and `extra` (a song line with no counterpart in the original). Original line numbers and song lyric line numbers are both given.
 - The caller fixes a failure by stating line-level operations on the writer's original (for example "line 1 is page text; remove it"), never by retyping the document, then runs again, with two attempts at most before asking the writer.
 
 ## 6. format (exists: `scripts/format.mjs`)

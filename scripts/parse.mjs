@@ -1,6 +1,6 @@
 // Lyrics & Chords: read one well-formed sheet and print ChordSheetJS's own JSON.
 // Usage: node scripts/parse.mjs <file>      (or pipe text in on standard input)
-// Optional: --format chordpro | chords-over-words | ultimate-guitar
+// Optional: --format chordpro | chords-over-words | ultimate-guitar | lyrics-only
 // The detected format goes to standard error; the JSON goes to standard output.
 import { readFileSync } from "node:fs";
 import {
@@ -14,11 +14,15 @@ import { CHORD } from "./chord-words.mjs";
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
   console.log(`Usage: node scripts/parse.mjs <file>        (or pipe the text in on standard input)
-       node scripts/parse.mjs --format chordpro | chords-over-words | ultimate-guitar <file>
+       node scripts/parse.mjs --format chordpro | chords-over-words | ultimate-guitar | lyrics-only <file>
 
 Reads one lyric or chord sheet and prints ChordSheetJS's JSON on standard output.
 The format is picked from the text unless --format is given. Notes (the format picked, repairs made)
 go to standard error.
+
+lyrics-only is for text that has no chords at all (a page's lyrics): a line that is just [Something] is a
+section header, every other line is a lyric, and no word is ever read as a chord. [Verse 1: Name] becomes
+the section "Verse 1" plus a comment line holding the performer. Pages loaded by load.mjs use it.
 
 Repairs made on the way: a line of two or more bracketed chords in an Ultimate Guitar style sheet is
 read as a chord line; a section runs from its header to the next header, across blank lines; padding
@@ -52,8 +56,8 @@ const parsers = {
 };
 
 const format = forced || detect(text);
-if (!parsers[format]) {
-  console.error(`Unknown format "${format}". Use: ${Object.keys(parsers).join(", ")}`);
+if (!parsers[format] && format !== "lyrics-only") {
+  console.error(`Unknown format "${format}". Use: ${[...Object.keys(parsers), "lyrics-only"].join(", ")}`);
   process.exit(2);
 }
 
@@ -89,7 +93,9 @@ function restructureSections(lines, originalText, replaceEnds) {
   const headers = new Set(
     originalText.split("\n")
       .map((l) => (l.match(/^\s*\[([^\]]+)\]\s*$/) || [])[1])
-      .filter((h) => h && !h.trim().split(/\s+/).every((tok) => CHORD.test(tok)))
+      // In ChordPro a lone [C] is a chord; in Ultimate Guitar style chords have lines of their own, so a
+      // lone [B] or [A] is a section header.
+      .filter((h) => h && (replaceEnds || !h.trim().split(/\s+/).every((tok) => CHORD.test(tok))))
       .map((h) => h.trim().toLowerCase()),
   );
   const tag = (l) => (l.items.length === 1 && l.items[0].type === "tag" ? l.items[0] : null);
@@ -144,16 +150,48 @@ function tidyChords(lines) {
   return { trimmed, dropped };
 }
 
+// Text with no chords: a line that is only [Something] opens a section, every other line is a lyric,
+// and nothing is read as a chord. [Label: performers] gives the section "Label" and a comment holding
+// the performers. Lines are kept exactly (a trailing carriage return is already gone).
+function readLyricsOnly(t) {
+  const tag = (name, value) => ({ type: "line", items: [{ type: "tag", name, value, attributes: {} }] });
+  const lines = [];
+  for (const raw of t.replace(/\n+$/, "").split("\n")) {
+    const header = raw.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (header) {
+      const inner = header[1].trim();
+      const colon = inner.indexOf(":");
+      const label = (colon > 0 ? inner.slice(0, colon) : inner).trim();
+      const performers = colon > 0 ? inner.slice(colon + 1).trim() : "";
+      const kind = /^verse/i.test(label) ? "verse" : /^chorus/i.test(label) ? "chorus" : /^bridge/i.test(label) ? "bridge" : "part";
+      lines.push(tag(`start_of_${kind}`, label));
+      if (performers) lines.push(tag("comment", performers));
+    } else if (!raw.trim()) {
+      lines.push({ type: "line", items: [] });
+    } else {
+      lines.push({ type: "line", items: [{ type: "chordLyricsPair", chords: "", chord: null, lyrics: raw, annotation: "" }] });
+    }
+  }
+  return { type: "chordSheet", lines };
+}
+
 try {
-  const song = new parsers[format]().parse(toParse);
-  console.error(`format: ${format}`);
-  const json = new ChordSheetSerializer().serialize(song);
-  const tidy = tidyChords(json.lines);
-  if (tidy.trimmed || tidy.dropped) console.error(`note: padding removed from ${tidy.trimmed} chord(s); ${tidy.dropped} empty item(s) dropped`);
-  if (format === "ultimate-guitar" || format === "chordpro") {
-    const fixed = restructureSections(json.lines, text, format === "ultimate-guitar");
-    json.lines = fixed.lines;
-    if (fixed.promoted) console.error(`note: ${fixed.promoted} header(s) read as comments were made sections`);
+  let json;
+  if (format === "lyrics-only") {
+    json = readLyricsOnly(text);
+    json.lines = restructureSections(json.lines, "", false).lines;
+    console.error(`format: ${format}`);
+  } else {
+    const song = new parsers[format]().parse(toParse);
+    console.error(`format: ${format}`);
+    json = new ChordSheetSerializer().serialize(song);
+    const tidy = tidyChords(json.lines);
+    if (tidy.trimmed || tidy.dropped) console.error(`note: padding removed from ${tidy.trimmed} chord(s); ${tidy.dropped} empty item(s) dropped`);
+    if (format === "ultimate-guitar" || format === "chordpro") {
+      const fixed = restructureSections(json.lines, text, format === "ultimate-guitar");
+      json.lines = fixed.lines;
+      if (fixed.promoted) console.error(`note: ${fixed.promoted} header(s) read as comments were made sections`);
+    }
   }
   console.log(JSON.stringify(json, null, 2));
 } catch (err) {

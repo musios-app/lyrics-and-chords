@@ -166,3 +166,11 @@ Section codes (V1, Ch1...) are not needed: the Songwriting Coach does not need n
 - Chord positions as columns or offsets; how repeated sections are stored.
 - How much interpretation lives here and how much stays in the Coach.
 - Maintenance: tracking ChordSheetJS updates and keeping the schema version in step with the Coach.
+
+## Bug found in use: headers that name a performer (9 Oct 2026)
+
+A Genius page whose headers carry a performer (`[Verse 1: Name]`) failed to load. Findings, from reproducing it:
+- The chord readers were the wrong tool: Genius text has no chords, yet a name ending in "B" (a chord letter) or a two-word ad-lib line was read as chords. The Ultimate Guitar reader lost an ad-lib line that way; ChordPro read every header as a chord and `check` passed it.
+- `check` also over-counted: it treated the "B" inside `[Verse 1: Name B]` as a chord.
+- Fixes: web pages are read with a `lyrics-only` reader that never produces chords (`[Label: performers]` gives the section "Label" plus a `comment` with the performers); `check` counts a bracket as chords only if every word in it is a chord, flags `not-a-chord` and `sections-missing`; in Ultimate Guitar style a lone `[B]` or `[A]` is a header.
+- `tests/lyrics-and-chords.test.mjs` covers all of this with invented lyrics. A real page is never a fixture.
