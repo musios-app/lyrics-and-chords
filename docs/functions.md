@@ -67,6 +67,8 @@ When the status is `needs-info`:
 
 **Content with no lyrics.** A bar chart or any sheet with no lyric lines at all (for example `| Am C | D G |` under plain section labels) is out of scope (decided 9 Oct 2026). `load` returns `status: "failed"` and a problem with `code: "no-lyrics"` and a plain message, such as: "This looks like a chord chart with no lyrics. Lyrics & Chords loads songs that have lyrics." The error is raised only when there are no lyric lines at all. If even one lyric line is present, the document loads as usual and the user can see for themselves what it holds (decided 9 Oct 2026: keep it simple). Bars, section labels and chord shorthand do not count as lyric lines.
 
+**Deferred (9 Oct 2026):** the test that decides what counts as a lyric line is not built. Until it is, a lyric-free bar chart loads as a song with bogus lyric lines (the library reads bars and section labels as lyrics: `Song C.pro` gave 47) and no error is raised. Songs with real lyrics are unaffected.
+
 Rules: lyric text is never changed; when unsure, ask; everything runs locally except fetching a page the user has given an address for.
 
 ### The url question (decided 9 Oct 2026)
@@ -130,7 +132,17 @@ addMetadata(song: Song, facts: Facts): Song
 - Lyric lines are not touched.
 - Errors: unknown fact name (for example `bpm`; use `tempo` with the unit in the value) → exit 2; input not from `parse` → exit 1.
 
-## 5. check (planned)
+## 4b. setAside (exists: `scripts/set-aside.mjs`) — internal to `load`
+
+```ts
+setAside(original: string, song: Song, lines: number[]): Song
+```
+- Removes lines from the song's lyrics because they are not lyrics (a title, a credit line). Lines are named by their number in the original text, so Claude never retypes them (decided 9 Oct 2026).
+- Changes nothing, and exits 1, if any named line is not a lyric line in the song (a header, a blank line, a fact already read).
+- Pair with `check(..., { setAside: lines })` so the lines are not reported as missing. The check lists them, so a real lyric set aside by mistake can be seen.
+- Claude decides which lines hold facts, writes them to `addMetadata`, and tells the writer what it did.
+
+## 5. check (exists: `scripts/check.mjs`)
 
 ```ts
 check(original: string, song: Song): {
@@ -153,7 +165,7 @@ check(original: string, song: Song): {
 ```ts
 format(song: Song, as: "text" | "chordpro" | "chords-over-words"): string
 ```
-- Writes the song back out. Text output shows only the title among the facts; ChordPro shows all of them.
+- Writes the song back out. Chord names are written exactly as read: the library's default rewrites them (`Ebmaj7` becomes `Ebma7`, `Gmin7` becomes `Gm7`), so both rewriting options are turned off. Text and chords-over-words output show only some of the facts (no date or version); ChordPro shows all of them.
 - Round trip on plain lyrics is exact apart from one trailing newline.
 - Errors: unknown output → exit 2; input cannot be read → exit 1.
 

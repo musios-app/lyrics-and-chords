@@ -10,19 +10,22 @@ PROVISIONAL: this file defines what the skill will do. Four scripts exist (see "
 
 ## What works now
 
-Four scripts in `scripts/`, each run on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
+Five scripts in `scripts/`, each run on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
 
 | Script | Does | Exit codes |
 |---|---|---|
 | `parse.mjs <file>` | Reads one well-formed sheet and prints ChordSheetJS's own JSON, unchanged. Picks ChordPro, chords over words or Ultimate Guitar style itself, or takes `--format`. A sheet it cannot read gives the line and column, the lines around it and a hint. | 0 done; 1 could not parse; 2 unknown format |
-| `add-metadata.mjs --meta facts.json` | Adds song facts (title, artist, lyricist, composer, copyright, album, year, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
-| `check.mjs --original <file>` | Confirms the lyric lines in the parsed song match the original. Ignores all spacing; compares words and punctuation exactly. Reports `changed`, `missing` and `extra` lines. | 0 match; 1 mismatch; 2 bad option or input |
-| `format.mjs [--as text \| chordpro \| chords-over-words]` | Turns the parsed JSON back into text. | 0 done; 1 could not format; 2 unknown output |
+| `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
+| `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
+| `check.mjs --original <file> [--set-aside 1,2]` | Confirms the lyric lines in the parsed song match the original, and that every chord is still there. Ignores all spacing; compares words and punctuation exactly. Reports `changed`, `missing` and `extra` lines and `chords-missing`. Lines named in `--set-aside` are not reported as missing and are listed in the output. | 0 match; 1 mismatch; 2 bad option or input |
+| `format.mjs [--as text \| chordpro \| chords-over-words]` | Turns the parsed JSON back into text. Chord names are written exactly as read (the library would rewrite `maj7` as `ma7`). | 0 done; 1 could not format; 2 unknown output |
 
 ```
 node scripts/parse.mjs song.cho | node scripts/add-metadata.mjs --meta facts.json | node scripts/format.mjs --as chordpro
 node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 ```
+
+Parse also does three repairs the library does not (it also trims the padding spaces the readers leave on chords): a line of two or more bracketed chords in an Ultimate Guitar style sheet is read as a chord line (the library would drop the chords), and a section runs from its header to the next header, across blank lines (the library ends it at the first blank line). A header the library keeps only as a comment, such as POST-CHORUS, becomes a section.
 
 Not yet built: the single `load` command that chains these, reading a saved web page or fetching an address, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
 
@@ -91,6 +94,18 @@ Built (`add-metadata.mjs`): title, artist, credits, key, tempo and the other fac
 ### 9. Load
 
 Planned. One entry point that takes pasted text, a file, or one web address the user gives, and runs the steps in a fixed order: read, parse, label sections, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
+
+## Title, credits and other facts
+
+Plain-text sheets usually open with a title and a credit line that nothing marks as such (`Song D`, then `Music & Lyrics: Andrew Hunt - 17 April 2025 (v4)`). The parser reads them as lyric lines. Fixing that is Claude's job, with scripts doing the exact steps:
+
+1. After `parse`, read the lines before the first section. Decide which are the title, the credits, a date, a version, a key or a tempo. Labelled lines such as `Key: D major` are already read as facts.
+2. Write a facts file for `add-metadata` (title, lyricist, composer, date, version...). Copy words exactly as written. Use only what the lines say: do not guess a year or a role.
+3. Run `set-aside.mjs --original <file> --lines N,N` for the lines that held those facts. Name the lines by number; never retype them.
+4. Run `check.mjs` with the same line numbers as `--set-aside`. The check lists the lines set aside.
+5. Tell the writer which lines you treated as facts and not lyrics, so a mistake can be seen. If it is unclear whether a line is a lyric or a fact, ask; do not set it aside.
+
+If `set-aside` refuses a line, it is not a lyric line in the song (a header, a blank line or a fact already read). Leave it.
 
 ## When something goes wrong
 

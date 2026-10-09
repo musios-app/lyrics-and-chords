@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 
 const ALLOWED = [
   "title", "subtitle", "artist", "composer", "lyricist", "copyright",
-  "album", "year", "key", "time", "tempo", "duration", "capo",
+  "album", "year", "date", "version", "key", "time", "tempo", "duration", "capo",
 ];
 
 const args = process.argv.slice(2);

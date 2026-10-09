@@ -9,6 +9,7 @@ import {
   UltimateGuitarParser,
   ChordSheetSerializer,
 } from "chordsheetjs";
+import { CHORD } from "./chord-words.mjs";
 
 const args = process.argv.slice(2);
 let forced = null;
@@ -41,10 +42,105 @@ if (!parsers[format]) {
   process.exit(2);
 }
 
+// The Ultimate Guitar reader takes a line of bracketed chords such as "[D] [Am] [G/D]" for a
+// section header and drops the chords. Read such a line (two or more brackets, all chords)
+// as a line of chords above words instead, keeping every chord in the same column.
+function readBracketChordLines(t) {
+  let changed = 0;
+  const fixed = t.split("\n").map((line) => {
+    const groups = line.match(/\[[^\]]*\]/g);
+    if (!groups || groups.length < 2 || line.replace(/\[[^\]]*\]/g, "").trim()) return line;
+    const allChords = groups.every((g) => g.slice(1, -1).trim().split(/\s+/).every((tok) => CHORD.test(tok)));
+    if (!allChords) return line;
+    changed++;
+    return line.replace(/[\[\]]/g, " ");
+  });
+  return { text: fixed.join("\n"), changed };
+}
+
+let toParse = text;
+if (format === "ultimate-guitar") {
+  const { text: fixed, changed } = readBracketChordLines(text);
+  toParse = fixed;
+  if (changed) console.error(`note: ${changed} line(s) of bracketed chords were read as chords above words`);
+}
+
+// A section runs from its header to the next header, whatever blank lines lie between.
+// Ultimate Guitar style: the reader ends a section at the first blank line, so a header
+// followed by a blank line encloses nothing; its own end markers are replaced.
+// ChordPro: only sections that are never closed are closed. Headers the reader keeps as
+// comments (such as POST-CHORUS) become sections when they were headers in the original.
+function restructureSections(lines, originalText, replaceEnds) {
+  const headers = new Set(
+    originalText.split("\n")
+      .map((l) => (l.match(/^\s*\[([^\]]+)\]\s*$/) || [])[1])
+      .filter((h) => h && !h.trim().split(/\s+/).every((tok) => CHORD.test(tok)))
+      .map((h) => h.trim().toLowerCase()),
+  );
+  const tag = (l) => (l.items.length === 1 && l.items[0].type === "tag" ? l.items[0] : null);
+  const result = [];
+  let open = null;
+  let closed = 0;
+  let promoted = 0;
+  const close = () => {
+    if (!open) return;
+    let at = result.length;
+    while (at > 0 && result[at - 1].items.length === 0) at--;
+    result.splice(at, 0, { type: "line", items: [{ type: "tag", name: open.replace("start_of_", "end_of_"), value: "", attributes: {} }] });
+    open = null;
+  };
+  for (const line of lines) {
+    const t = tag(line);
+    if (t && /^end_of_/.test(t.name)) {
+      if (replaceEnds) continue;
+      open = null;
+    } else if (t && t.name === "comment" && headers.has(String(t.value).trim().toLowerCase())) {
+      if (open) { close(); closed++; }
+      promoted++;
+      open = "start_of_part";
+      result.push({ type: "line", items: [{ type: "tag", name: "start_of_part", value: t.value, attributes: {} }] });
+      continue;
+    } else if (t && /^start_of_/.test(t.name)) {
+      if (open) { close(); closed++; }
+      open = t.name;
+    }
+    result.push(line);
+  }
+  if (open) { close(); closed++; }
+  return { lines: result, closed, promoted };
+}
+
+// The readers leave chords padded with the spaces of the chord line ("D  ", "      ").
+// Trim them, and drop the items that are left with no chord and no lyric.
+function tidyChords(lines) {
+  let trimmed = 0;
+  let dropped = 0;
+  for (const line of lines) {
+    for (const x of line.items) {
+      if (x.type === "chordLyricsPair" && x.chords && x.chords.trim() !== x.chords) {
+        x.chords = x.chords.trim();
+        trimmed++;
+      }
+    }
+    const kept = line.items.filter((x) => !(x.type === "chordLyricsPair" && !x.chords && !x.lyrics));
+    dropped += line.items.length - kept.length;
+    line.items = kept;
+  }
+  return { trimmed, dropped };
+}
+
 try {
-  const song = new parsers[format]().parse(text);
+  const song = new parsers[format]().parse(toParse);
   console.error(`format: ${format}`);
-  console.log(JSON.stringify(new ChordSheetSerializer().serialize(song), null, 2));
+  const json = new ChordSheetSerializer().serialize(song);
+  const tidy = tidyChords(json.lines);
+  if (tidy.trimmed || tidy.dropped) console.error(`note: padding removed from ${tidy.trimmed} chord(s); ${tidy.dropped} empty item(s) dropped`);
+  if (format === "ultimate-guitar" || format === "chordpro") {
+    const fixed = restructureSections(json.lines, text, format === "ultimate-guitar");
+    json.lines = fixed.lines;
+    if (fixed.promoted) console.error(`note: ${fixed.promoted} header(s) read as comments were made sections`);
+  }
+  console.log(JSON.stringify(json, null, 2));
 } catch (err) {
   console.error(explain(err));
   process.exit(1);
