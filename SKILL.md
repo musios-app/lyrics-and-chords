@@ -10,10 +10,11 @@ PROVISIONAL: this file defines what the skill will do. Four scripts exist (see "
 
 ## What works now
 
-Five scripts in `scripts/`, each run on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
+Six scripts in `scripts/`. `load.mjs` runs the other five in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
 
 | Script | Does | Exit codes |
 |---|---|---|
+| `load.mjs <file \| ->` | **The all-in-one.** Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
 | `parse.mjs <file>` | Reads one well-formed sheet and prints ChordSheetJS's own JSON, unchanged. Picks ChordPro, chords over words or Ultimate Guitar style itself, or takes `--format`. A sheet it cannot read gives the line and column, the lines around it and a hint. | 0 done; 1 could not parse; 2 unknown format |
 | `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
 | `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
@@ -27,7 +28,7 @@ node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 
 Parse also does three repairs the library does not (it also trims the padding spaces the readers leave on chords): a line of two or more bracketed chords in an Ultimate Guitar style sheet is read as a chord line (the library would drop the chords), and a section runs from its header to the next header, across blank lines (the library ends it at the first blank line). A header the library keeps only as a comment, such as POST-CHORUS, becomes a section.
 
-Not yet built: the single `load` command that chains these, reading a saved web page or fetching an address, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
+Not yet built: reading a saved web page or fetching an address, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
 
 ## What it is for
 
@@ -69,7 +70,7 @@ Header, chord line, tab line, metadata, directive, annotation (`x2`, capo, `N.C.
 
 Built, in ChordSheetJS's own shape: `{ "type": "chordSheet", "lines": [...] }`, where each lyric line is a list of chord-and-lyric pairs and the song facts are tag lines at the top. (library)
 
-Planned, not decided: our own structure with sections (a label, a code such as V1, Ch1, Pre, Brg, Intro, Outro, and a confidence), numbered lines carrying chords and annotations, `schema_version`, `format_detected`, `unparsed_blocks` and `parse_notes`. See `docs/design-notes.md`. (own)
+Planned, not decided: our own structure with sections (a label and a confidence; no normalised section codes, decided 9 Oct 2026, because the Songwriting Coach does not need them), numbered lines carrying chords and annotations, `schema_version`, `format_detected`, `unparsed_blocks` and `parse_notes`. See `docs/design-notes.md`. (own)
 
 ### 4. Keep the meaning of the lyrics
 
@@ -93,7 +94,7 @@ Built (`add-metadata.mjs`): title, artist, credits, key, tempo and the other fac
 
 ### 9. Load
 
-Planned. One entry point that takes pasted text, a file, or one web address the user gives, and runs the steps in a fixed order: read, parse, label sections, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
+Built for pasted text and files (`load.mjs`); web pages and web addresses are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
 
 ## Title, credits and other facts
 

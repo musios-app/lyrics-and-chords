@@ -221,9 +221,12 @@ if (setAsideLines) {
     stillInSong: inSong.has(n),
   }));
 }
-console.log(JSON.stringify(result, null, 2));
 const count = (kind) => problems.filter((p) => p.kind === kind).length;
-console.error(result.ok
+const summary = result.ok
   ? `check: ok (${lyrics.length} lyric lines match)`
-  : `check: ${problems.length} problem(s): ${count("changed")} changed, ${count("missing")} missing, ${count("extra")} extra, ${count("chords-missing")} chord(s) lost (see output)`);
-process.exit(result.ok ? 0 : 1);
+  : `check: ${problems.length} problem(s): ${count("changed")} changed, ${count("missing")} missing, ${count("extra")} extra, ${count("chords-missing")} chord(s) lost (see output)`;
+// Write everything out before exiting (a large result cut short would be unreadable), then the summary.
+process.stdout.write(JSON.stringify(result, null, 2) + "\n", () => {
+  console.error(summary);
+  process.exit(result.ok ? 0 : 1);
+});

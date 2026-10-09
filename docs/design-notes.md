@@ -108,7 +108,7 @@ Eight ChordPro files from Andrew's own collection went through `scripts/parse.mj
 ## Layers
 
 1. **Library (ChordSheetJS):** ChordPro, chords over words, Ultimate Guitar text, inline chords; formatting back out.
-2. **Our code (deterministic):** header handling (bracketed, bare, ALL CAPS), plain lyrics in blocks, saved Ultimate Guitar and Chordie pages, clutter from pasted text, line classification, numbering, section codes, the JSON, and the checker that compares output to the input.
+2. **Our code (deterministic):** header handling (bracketed, bare, ALL CAPS), plain lyrics in blocks, saved Ultimate Guitar and Chordie pages, clutter from pasted text, line classification, numbering, the JSON, and the checker that compares output to the input.
 3. **Model (fuzzy):** what an odd label means, labelling unlabelled sections, lyric or annotation, asking the writer when unsure.
 
 The lyric text is always copied from the input by a script, never retyped by the model.
@@ -147,7 +147,7 @@ Starts from the Coach's existing `parse` output (see the Songwriting Coach repo,
 }
 ```
 
-Ideas to settle: line numbers restarting in each section; section codes (Intro, V1.., Ch1.., Pre, Post, Brg, Brk, Solo, Outro, Tag, Hook; repeats numbered); chord position as column or character offset; keeping the original layout so it can be written back; original text next to normalised text; a confidence per section; a list of questions for the writer.
+Section codes (V1, Ch1...) are not needed: the Songwriting Coach does not need normalised section names (decided 9 Oct 2026). Ideas to settle: line numbers restarting in each section; chord position as column or character offset; keeping the original layout so it can be written back; original text next to normalised text; a confidence per section; a list of questions for the writer.
 
 ## Test material (no lyrics)
 
