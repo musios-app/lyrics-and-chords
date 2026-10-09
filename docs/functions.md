@@ -36,7 +36,7 @@ Decided 9 Oct 2026: callers ask the skill to **load** content. Most other functi
 
 Because a skill is instructions the assistant follows, not a function it can call, `load` is a workflow written in `SKILL.md`. A script does the exact steps; Claude does the judgement steps.
 
-## 0. load (exists for pasted text and files: `scripts/load.mjs`; web addresses and pages planned)
+## 0. load (exists: `scripts/load.mjs`; pasted text, files, saved Genius pages and Genius addresses; other sites planned)
 
 ```ts
 load(source:
@@ -96,7 +96,7 @@ parse(input: { text: string } | { file: string }, options?: { format?: Format })
 - Does not find sections, titles or metadata in plain lyrics; that is `labelSections` and `addMetadata`.
 - Errors: unknown format → exit 2. Text the parser cannot read → exit 1 with a message that gives the line and column where it stopped, what it found and expected, the offending line and the one before it with a marker, a hint when the line before has an unclosed `{` or `[`, and, when the format was guessed, the other formats to try with `--format`.
 
-## 2. extractPage (planned)
+## 2. extractPage (exists for Genius: `scripts/read-page.mjs`)
 
 ```ts
 extractPage(input: { file: string }, options?: { site?: "genius" }): {

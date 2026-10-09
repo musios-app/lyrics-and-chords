@@ -10,13 +10,14 @@ PROVISIONAL: this file defines what the skill will do. Four scripts exist (see "
 
 ## What works now
 
-Six scripts in `scripts/`. `load.mjs` runs the other five in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
+Seven scripts in `scripts/`. `load.mjs` runs the others in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
 
 | Script | Does | Exit codes |
 |---|---|---|
-| `load.mjs <file \| ->` | **The all-in-one.** Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
+| `load.mjs <file \| web address \| ->` | **The all-in-one.** Takes a file, pasted text (`-`), a saved web page, or a web address (fetched once, because the user gave it; Genius lyrics pages only today; the user is responsible for having the right to use the content). Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
 | `parse.mjs <file>` | Reads one well-formed sheet and prints ChordSheetJS's own JSON, unchanged. Picks ChordPro, chords over words or Ultimate Guitar style itself, or takes `--format`. A sheet it cannot read gives the line and column, the lines around it and a hint. | 0 done; 1 could not parse; 2 unknown format |
-| `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
+| `read-page.mjs <page.html>` | Takes the lyrics and song facts (title, artist, writers, album, date) out of a saved Genius page, using the data the page embeds for itself, parsed as text: none of the page's code is run. Clutter, ids, counts, credits and the site's own copyright are left out. A page it does not understand gives a plain message. | 0 read; 1 not a page it understands; 2 bad option or input |
+| `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, writer, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
 | `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
 | `check.mjs --original <file> [--set-aside 1,2]` | Confirms the lyric lines in the parsed song match the original, and that every chord is still there. Ignores all spacing; compares words and punctuation exactly. Reports `changed`, `missing` and `extra` lines and `chords-missing`. Lines named in `--set-aside` are not reported as missing and are listed in the output. | 0 match; 1 mismatch; 2 bad option or input |
 | `format.mjs [--as text \| chordpro \| chords-over-words]` | Turns the parsed JSON back into text. Chord names are written exactly as read (the library would rewrite `maj7` as `ma7`). | 0 done; 1 could not format; 2 unknown output |
@@ -28,7 +29,7 @@ node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 
 Parse also does three repairs the library does not (it also trims the padding spaces the readers leave on chords): a line of two or more bracketed chords in an Ultimate Guitar style sheet is read as a chord line (the library would drop the chords), and a section runs from its header to the next header, across blank lines (the library ends it at the first blank line). A header the library keeps only as a comment, such as POST-CHORUS, becomes a section.
 
-Not yet built: reading a saved web page or fetching an address, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
+Not yet built: pages from sites other than Genius, labelling sections, our own JSON structure, annotations, notes, Word files, and bundling the library into the scripts. They currently need `npm install` in this folder.
 
 ## What it is for
 
@@ -94,7 +95,7 @@ Built (`add-metadata.mjs`): title, artist, credits, key, tempo and the other fac
 
 ### 9. Load
 
-Built for pasted text and files (`load.mjs`); web pages and web addresses are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
+Built for pasted text, files, saved Genius pages and Genius web addresses (`load.mjs`); other sites are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. See `docs/functions.md`. (own plus model)
 
 ## Title, credits and other facts
 

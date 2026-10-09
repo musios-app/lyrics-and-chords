@@ -1,12 +1,14 @@
 // Lyrics & Chords: load a song in one step.
-// Usage: node scripts/load.mjs <file>                       (or "-" to read pasted text on standard input)
+// Usage: node scripts/load.mjs <file | web address | ->     ("-" reads pasted text on standard input)
 //        node scripts/load.mjs <file> --facts facts.json --set-aside 1,2 --as chordpro --output song.cho
 // Runs the separate scripts in order: parse, set aside, add facts, check, write out.
 // The separate scripts still work on their own; this one only chains them.
 // Prints one JSON result on standard output. Exit codes: 0 loaded (status ok or needs-info);
 // 1 failed (see "problems"); 2 bad option.
+// A web address is fetched once, because the user gave it; the user is responsible for having the
+// right to use what they load. Only Genius lyrics pages are understood today.
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, readSync, closeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,14 +16,17 @@ import { parseLineList } from "./lyric-lines.mjs";
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`Usage: node scripts/load.mjs <file | -> [options]
+  console.log(`Usage: node scripts/load.mjs <file | web address | -> [options]
 
 Loads a lyric or chord sheet: parse, set aside non-lyric lines, add song facts, check that the
 lyrics and chords are intact, and optionally write the song out. "-" reads pasted text from
-standard input.
+standard input. A web address (https://...) is fetched once; so is a saved web page (.html) read.
+Only Genius lyrics pages are understood today; the lyrics and song facts come from the page's own
+data. Using the content is the user's responsibility. Nothing is stored beyond the run.
 
 Options:
   --facts FILE      JSON file of song facts (title, artist, lyricist, composer, date, ... see add-metadata.mjs).
+                    For a web page these override the facts read from the page.
   --set-aside LIST  Original line numbers that are not lyrics (a title, a credit line), such as 1,2.
   --format NAME     Force the reader: chordpro, chords-over-words or ultimate-guitar.
   --as NAME         Also write the song out: text, chordpro or chords-over-words.
@@ -66,14 +71,28 @@ if (setAsideList && !parseLineList(setAsideList)) {
   process.exit(2);
 }
 
-// Pasted text goes to a temporary file, so every step reads the same original.
+// Pasted text, and anything read from a web page, goes to a temporary file, so every step reads
+// the same original. The temporary folder is removed at the end.
 let original = positional[0];
 let tempDir = null;
+const isAddress = /^https?:\/\//i.test(original);
+const looksLikePage = (path) => {
+  try {
+    const fd = openSync(path, "r");
+    const buffer = Buffer.alloc(4096);
+    const n = readSync(fd, buffer, 0, 4096, 0);
+    closeSync(fd);
+    return /<!doctype html|<html/i.test(buffer.toString("utf8", 0, n));
+  } catch {
+    return false;
+  }
+};
 if (original === "-") {
   tempDir = mkdtempSync(join(tmpdir(), "lyrics-and-chords-"));
   original = join(tempDir, "pasted.txt");
   writeFileSync(original, readFileSync(0, "utf8"));
 }
+let factsPath = value("--facts");
 
 const run = (script, scriptArgs, input) =>
   spawnSync(process.execPath, [join(here, script), ...scriptArgs], { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -100,6 +119,49 @@ const fail = (kind, message) => {
 };
 
 try {
+  // 0. A web address or a saved page: take the lyrics and the song facts out of the page.
+  if (isAddress || (!tempDir && looksLikePage(original))) {
+    let html;
+    if (isAddress) {
+      try {
+        const response = await fetch(original, {
+          redirect: "follow",
+          headers: { "User-Agent": "lyrics-and-chords/0.1" },
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok) {
+          fail("fetch", `The page did not load (the site answered ${response.status}). Save the page or paste the lyrics, and load that instead.`);
+        }
+        html = await response.text();
+      } catch (err) {
+        if (err instanceof Stop) throw err;
+        fail("fetch", `Could not fetch ${original}: ${err.message}. Save the page or paste the lyrics, and load that instead.`);
+      }
+    } else {
+      html = readFileSync(original, "utf8");
+    }
+    tempDir ??= mkdtempSync(join(tmpdir(), "lyrics-and-chords-"));
+    const pagePath = join(tempDir, "page.html");
+    writeFileSync(pagePath, html);
+    const page = run("read-page.mjs", [pagePath]);
+    if (page.status !== 0) fail("page", page.stderr.trim());
+    const read = JSON.parse(page.stdout);
+    original = join(tempDir, "lyrics.txt");
+    writeFileSync(original, read.lyrics);
+    let own = {};
+    if (value("--facts")) {
+      try {
+        own = JSON.parse(readFileSync(value("--facts"), "utf8"));
+      } catch (err) {
+        fail("facts", `Cannot read the facts file "${value("--facts")}": ${err.message}`);
+      }
+    }
+    factsPath = join(tempDir, "facts.json");
+    writeFileSync(factsPath, JSON.stringify({ ...read.facts, ...own }));
+    result.source = { site: read.site, ...(isAddress ? { address: positional[0] } : {}) };
+    result.notes.push(...read.notes);
+  }
+
   // 1. Read the sheet.
   const parsed = run("parse.mjs", [original, ...(value("--format") ? ["--format", value("--format")] : [])]);
   result.notes.push(...lines(parsed.stderr).filter((l) => l.startsWith("note:") || l.startsWith("format:")));
@@ -115,8 +177,8 @@ try {
   }
 
   // 3. Add the song facts.
-  if (value("--facts")) {
-    const facts = run("add-metadata.mjs", ["--meta", value("--facts")], song);
+  if (factsPath) {
+    const facts = run("add-metadata.mjs", ["--meta", factsPath], song);
     if (facts.status !== 0) fail("facts", facts.stderr.trim());
     song = facts.stdout;
   }
