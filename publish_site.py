@@ -6,8 +6,8 @@ Usage:
     python3 publish_site.py --site PATH           # a different clone of musios-app.github.io
     python3 publish_site.py --allow-uncommitted   # a trial run: the source zip is still made from the last commit
 
-Run `python3 build.py` first, and commit your changes. This copies the page, the .skill and a source
-zip into the site clone's projects/lyrics-and-chords/ folder and nothing else: it doesn't touch git
+Run `python3 build.py` first, and commit your changes. This copies the page, the example pages (made by
+running the packaged skill on the files in examples/), the .skill and a source zip into the site clone's projects/lyrics-and-chords/ folder and nothing else: it doesn't touch git
 there. Review and push the site yourself. Python standard library only.
 
 The source zip is there because the licence (GPL-2.0-only) asks that anyone who receives the .skill
@@ -27,6 +27,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 PAGE = ROOT / "site" / "lyrics-and-chords" / "index.md"
 SKILL_FILE = ROOT / "dist" / "lyrics-and-chords.skill"
+EXAMPLES_FILE = ROOT / "site" / "lyrics-and-chords" / "examples.json"
+EXAMPLES_DIR = ROOT / "examples"
 NAME = "lyrics-and-chords"
 DEFAULT_SITE = Path.home() / "Dropbox/code/musios-app/musios-app.github.io"
 
@@ -65,6 +67,79 @@ def make_source_zip(version, target):
     git("archive", "--format=zip", f"--prefix={NAME}-{version}/", "-o", str(target), "HEAD")
 
 
+def compact_json(result):
+    """The result as JSON with one song line to a row: readable, and still valid JSON."""
+    others = {k: v for k, v in result.items() if k not in ("song", "output")}
+    rows = ",\n".join("      " + json.dumps(line, ensure_ascii=False) for line in result["song"]["lines"])
+    head = ",\n".join(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}" for k, v in others.items())
+    return "{\n" + head + ',\n  "song": {\n    "type": "chordSheet",\n    "lines": [\n' + rows + "\n    ]\n  }\n}"
+
+
+def run_examples(examples, skill_dir):
+    """Run the packaged skill on each example file; returns (input text, cleaned text, JSON text) for each."""
+    out = []
+    with tempfile.TemporaryDirectory() as temp:
+        for example in examples:
+            path = EXAMPLES_DIR / example["file"]
+            if example.get("docx"):
+                word = subprocess.run(["node", "scripts/read-docx.mjs", str(path)], cwd=skill_dir, capture_output=True,
+                                      text=True, stdin=subprocess.DEVNULL)
+                if word.returncode != 0:
+                    stop(f"example {example['slug']}: {word.stderr.strip()}")
+                shown = json.loads(word.stdout)["text"]
+            else:
+                shown = path.read_text(encoding="utf8")
+            command = ["node", "scripts/load.mjs", "-" if example.get("stdin") else str(path), "--as", "chords-over-words"]
+            if example.get("facts"):
+                facts = Path(temp) / f"facts-{example['slug']}.json"
+                facts.write_text(json.dumps(example["facts"]), encoding="utf8")
+                command += ["--facts", str(facts)]
+            if example.get("set_aside"):
+                command += ["--set-aside", example["set_aside"]]
+            run = subprocess.run(command, cwd=skill_dir, capture_output=True, text=True, timeout=120,
+                                 input=shown if example.get("stdin") else None,
+                                 stdin=None if example.get("stdin") else subprocess.DEVNULL)
+            try:
+                result = json.loads(run.stdout)
+            except ValueError:
+                stop(f"example {example['slug']} gave no result: {run.stderr.strip()}")
+            if result["status"] == "failed":
+                stop(f"example {example['slug']} failed: {result['problems']}")
+            out.append((shown.rstrip("\n"), result["output"].rstrip("\n"), compact_json(result), result))
+    return out
+
+
+def example_page(example, shown, cleaned, formatted, previous, following):
+    """A Jekyll page for one example. {% raw %} keeps Jekyll from reading braces in the text."""
+    n = example["slug"]
+    title = f"Example: {example['name']}"
+    note = ""
+    if example.get("set_aside"):
+        if "," in example["set_aside"]:
+            note = " It was loaded with the page text set aside and the title and credits given as facts, which is what Claude does for you."
+        else:
+            note = " It was loaded with the title line set aside and the title given as a fact, which is what Claude does for you."
+    links = ["[All examples](../#what-it-reads)"]
+    if previous:
+        links.insert(0, f"[Previous: {previous[1]}](example-{previous[0]}.html)")
+    if following:
+        links.append(f"[Next: {following[1]}](example-{following[0]}.html)")
+    source_block = ""
+    if example.get("source_url"):
+        source_block = (f"The page: <{example['source_url']}>\n\nThe text on that page:\n\n")
+    word = f"\n[Download the Word file](example-{n}.docx)\n" if example.get("docx") else ""
+    return (
+        f'---\nlayout: default\ntitle: "{title}"\nsitemap: false\nnoindex: true\n---\n\n'
+        f"# {title}\n\n**Input Format:** {example['input_format']}\n\n{example['intro']}{note}\n{word}\n"
+        f"\\[ [Input](#input) \\]&emsp;\\[ [Clean text output](#clean-text-output) \\]&emsp;\\[ [JSON output](#json-output) \\]\n\n"
+        f"## Input {{#input}}\n\n{source_block}{{% raw %}}\n```text\n{shown}\n```\n{{% endraw %}}\n\n"
+        f"## Output - Cleaned text {{#clean-text-output}}\n\nThe song written back out as readable text: section names, facts at the top, "
+        f"and chords above the words where there are any.\n\n{{% raw %}}\n```text\n{cleaned}\n```\n{{% endraw %}}\n\n"
+        f"## Output - Formatted (JSON) {{#json-output}}\n\nWhat the skill returns: one JSON object, with one line of the song on each row below.\n\n"
+        f"{{% raw %}}\n```json\n{formatted}\n```\n{{% endraw %}}\n\n" + " · ".join(links) + "\n"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--site", type=Path, default=DEFAULT_SITE, help="your clone of musios-app.github.io")
@@ -100,11 +175,29 @@ def main():
         make_source_zip(version, source)
         shutil.copyfile(source, downloads / f"{NAME}-{version}-source.zip")
 
+    examples = json.loads(EXAMPLES_FILE.read_text(encoding="utf8"))
+    example_folder = folder / "examples"
+    example_folder.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory() as temp:
+        with zipfile.ZipFile(SKILL_FILE) as z:
+            z.extractall(temp)
+        ran = run_examples(examples, Path(temp) / NAME)
+    numbers = [(e["slug"], e["name"]) for e in examples]
+    for n, (example, (shown, cleaned, formatted, _)) in enumerate(zip(examples, ran)):
+        previous = numbers[n - 1] if n else None
+        following = numbers[n + 1] if n + 1 < len(numbers) else None
+        (example_folder / f"example-{example['slug']}.md").write_text(
+            example_page(example, shown, cleaned, formatted, previous, following), encoding="utf8")
+        if example.get("docx"):
+            shutil.copyfile(EXAMPLES_DIR / example["file"], example_folder / f"example-{example['slug']}.docx")
+
     print(f"Copied version {version} (commit {commit}) into {folder}:")
     print("  index.md")
     print(f"  downloads/{NAME}.skill")
     print(f"  downloads/{NAME}-{version}.skill")
     print(f"  downloads/{NAME}-{version}-source.zip")
+    for example in examples:
+        print(f"  examples/example-{example['slug']}.md" + (f" and example-{example['slug']}.docx" if example.get("docx") else ""))
     if uncommitted:
         print("Warning: tracked files have uncommitted changes; the source zip holds the last commit only.")
     print("Nothing was committed or pushed in the site folder.")

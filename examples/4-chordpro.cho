@@ -1,0 +1,38 @@
+{title: Ballad of Lorem Ipsum}
+{key: Am}
+
+{start_of_verse: Verse 1}
+[Am]He sang of [F]Lorem Ipsum
+[C]Driving her [G]Dolorem
+[Am]She stood for [F]something wholesome
+[C]When nothing [G]else would work
+{end_of_verse}
+
+{start_of_chorus: Chorus}
+[F]This song is just [C]a placeholder
+[G]Found it in some [Am]folder
+[C]So just an [F]example
+[G]You’re welcome to [C]scramble
+{end_of_chorus}
+
+{start_of_verse: Verse 2}
+His song had a second verse
+It could have been worse
+If he forgot his chorus
+He’d ruin something flawless
+{end_of_verse}
+
+{start_of_bridge: Bridge}
+When Lorem filled the page
+He’d start to engage
+With words to take her place
+But lose her pretty face
+{end_of_bridge}
+
+{start_of_chorus: Chorus}
+{comment: repeat}
+{end_of_chorus}
+
+{start_of_part: Outro}
+May Lorem Ipsum be your muse
+{end_of_part}

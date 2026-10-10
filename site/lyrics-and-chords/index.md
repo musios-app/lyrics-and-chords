@@ -1,37 +1,39 @@
 ---
 layout: default
-title: "Lyrics & Chords"
-description: Loads song lyric and chord files and returns a JSON object, for Claude.
+title: "Lyrics & Chords Skill"
+description: Reads song lyrics and chord files into Claude and returns a plain reading plus a JSON object.
 sitemap: false
 noindex: true
 ---
 
-# Lyrics & Chords
+## Lyrics & Chords Skill
 
-Lyrics & Chords loads a song's lyric or chord file, reads it, repairs what the readers get wrong, checks that no word or chord was lost, and returns a JSON object: the song with its facts and sections, plus anything it could not resolve. It runs entirely on your own computer and makes no network requests.
+The Lyrics & Chords skill for Claude read song lyric and chord content with structure to help understand of the lyrics.
 
-It is a helper for other skills, such as the [Songwriting Coach](../songwriting-coach/), and is useful on its own when you want a lyric or chord file in a predictable form.
+* Reads a wide range of lyric and chord formats (see below)
+* Able to read from [genius.com](https://genius.com), [ultimate-guitar.com](https://ultimate-guitar.com) and other sites - for educational uses only.
+* Identifies and corrects many (not all) common errors
+* Returns a plain reading plus a JSON object (ChordSheetJS format) that captures the structure in the lyrics (see [Return JSON Object](#return-json-object))
+* This skill can be used with other skills, such the [Songwriting Coach](https://musios.app/projects/songwriting-coach/).
+* Source code available (see [Downloads](#download))
 
-Version {{version}}, a first release.
+*Supported Formats:*
 
-## What it reads
+* [ChordPro](examples/example-chordpro.html) - with thanks to [Martijn Versluis](https://github.com/martijnversluis) for the [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS) library.
+* [Genius.com](examples/example-genius.html)
+* [Ultimate Guitar](examples/example-ultimate-guitar.html)
+* [Bracket format](examples/example-bracket-format.html)
+* [Unbracketed format](examples/example-unbracketed-format.html)
+* [Plain text](examples/example-plain-text.html)
+* [Chords above words](examples/example-chords-above-words.html)
+* [Word documents](examples/example-word-documents.html)
 
-* **ChordPro** files (`.cho`, `.chordpro`, `.pro`), with `{directives}` and inline `[Am]chords`
-* **Chords above words**, as plain text
-* **Text with `[Verse 1]` style headers**, with or without chords. A header can name a performer: `[Verse 1: Name]`.
-* **Section labels without brackets**, such as `V1`, `VERSE 1` or `Chorus`
-* **Word files** (`.docx`): the paragraph text only. Comments, deleted text and formatting are ignored.
-* **Pasted text**
+## Return JSON Object {#return-json-object}
 
-Fixes made along the way include chord lines the underlying library cannot read exactly (`G(maj7)`, `Em7(♭5)/D`, `| Emaj7| Emaj7 |`), sections that run across blank lines, and padding spaces on chords.
-
-**Not supported yet:** Nashville numbers, chord charts with no lyrics (bars and section labels only), and chord lines that have a word in them (`Intro | Gm79 | C7`). A file the skill cannot read fails with a plain message that names the line. It never returns a song with a lost word or chord.
-
-## What it returns
-
-One JSON object. The words in this example are invented.
+Example JSON object:
 
 {% raw %}
+
 ```json
 {
   "status": "ok",
@@ -53,15 +55,16 @@ One JSON object. The words in this example are invented.
   }
 }
 ```
+
 {% endraw %}
 
 * `status` is `ok`, `needs-info` (loaded, but the title, the credits or the date is missing, and `questions` says what to ask) or `failed` (`problems` says why).
 * `song` is [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS)'s JSON: song facts as tag lines, sections as `start_of_...` and `end_of_...` tags, and each lyric line as a list of chord-and-lyric pairs.
 
-## Download
+## Download {#download}
 
 | Platform | Download |
-|---|---|
+| --- | --- |
 | Claude (claude.ai, desktop app, Claude Code) | [lyrics-and-chords.skill](downloads/lyrics-and-chords.skill) (v{{version}}) |
 | Source code | [lyrics-and-chords-{{version}}-source.zip](downloads/lyrics-and-chords-{{version}}-source.zip) |
 

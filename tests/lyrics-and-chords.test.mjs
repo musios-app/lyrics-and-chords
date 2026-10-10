@@ -365,3 +365,60 @@ test("--save default goes to Documents, then Desktop, then the home folder", () 
   mkdirSync(bare, { recursive: true });
   assert.equal(attempt(bare), join(bare, "song.txt"));
 });
+
+// ---- A sample lyric (Ballad of Lorem Ipsum): labels without brackets, a title line, a repeat mark --------
+
+const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url));
+const LOREM = join(EXAMPLES, "3-labels-without-brackets.txt");
+
+test("the Lorem Ipsum sample loads as six sections, and its title line is a lyric until set aside", () => {
+  const { code, result } = load(LOREM);
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(sectionsOf(result.song), ["Verse 1", "Chorus", "Verse 2", "Bridge", "Chorus", "Outro"]);
+  assert.equal(result.status, "needs-info");
+  assert.deepEqual(result.missing, ["title", "credits", "date"]);
+  const beforeFirstSection = result.song.lines.slice(0, result.song.lines.findIndex((l) => l.items.some((x) => x.name === "start_of_verse")));
+  assert.ok(beforeFirstSection.some((l) => l.items.some((x) => x.lyrics === "Ballad of Lorem Ipsum")));
+});
+
+test("the Lorem Ipsum sample with its title set aside has the title as a fact and asks for credits and date", () => {
+  const facts = file("lorem-facts.json", JSON.stringify({ title: "Ballad of Lorem Ipsum" }));
+  const { result } = load(LOREM, "--facts", facts, "--set-aside", "1");
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(result.missing, ["credits", "date"]);
+  assert.equal(result.questions.length, 2);
+  assert.ok(!lyricLinesOf(result.song).includes("Ballad of Lorem Ipsum"), "the title is no longer a lyric line");
+});
+
+test("the Lorem Ipsum sample keeps its curly apostrophes and its (repeat) line exactly", () => {
+  const { result } = load(LOREM);
+  const lyrics = lyricLinesOf(result.song);
+  assert.ok(lyrics.includes("You\u2019re welcome to scramble"));
+  assert.ok(lyrics.includes("He\u2019d ruin something flawless"));
+  assert.ok(lyrics.includes("(repeat)"), "a repeat mark is a lyric line; the skill does not interpret it");
+  assert.equal(lyrics.length, 19, "every line is kept: the title line, 17 sung lines and the repeat mark");
+});
+
+// ---- The examples folder: one lyric written five ways -----------------------------------------------------
+
+test("the examples folder: each way of writing the lyric loads without problems", () => {
+  const six = ["Verse 1", "Chorus", "Verse 2", "Bridge", "Chorus", "Outro"];
+  const pasted = JSON.parse(run("load.mjs", ["-"], readFileSync(join(EXAMPLES, "1-pasted-text.txt"), "utf8")).stdout);
+  assert.equal(pasted.status, "needs-info");
+  assert.deepEqual(pasted.problems, []);
+  assert.deepEqual(sectionsOf(pasted.song), [], "stanzas with no labels have no sections");
+  for (const name of ["2-bracket-headers.txt", "3-labels-without-brackets.txt", "4-chordpro.cho", "5-chords-above-words.txt"]) {
+    const { code, result } = load(join(EXAMPLES, name));
+    assert.equal(code, 0, name);
+    assert.deepEqual(result.problems, [], name);
+    assert.deepEqual(sectionsOf(result.song), six, name);
+  }
+});
+
+test("the examples with chords have the same 16 chords", () => {
+  const a = chordsOf(load(join(EXAMPLES, "4-chordpro.cho")).result.song);
+  const b = chordsOf(load(join(EXAMPLES, "5-chords-above-words.txt")).result.song);
+  assert.equal(a.length, 16);
+  assert.deepEqual(a, b);
+});
