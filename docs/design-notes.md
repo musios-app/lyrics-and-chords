@@ -225,3 +225,15 @@ First use: the parse error (`explain()` in `scripts/parse.mjs`; the file name is
 Found by: five of Andrew's Word files had a chord line starting with `[` instead of `|`. The old message pointed at the line above; the new one names the right line. No special repair was added.
 
 First review against the principle (10 Oct 2026, obvious cases only): `load` answered a missing file with a Node stack trace, and loaded an empty file, a PDF or an RTF file as if it were a song. It now says in plain words what is wrong (no such file, a folder, empty, a PDF, an old Word .doc, an RTF, not text) and what to do. Usage errors for Claude (a bad option, bad facts) were left as they are: they are not shown to a writer.
+
+## Bug found in use: unbracketed "Label: Performer" headers (10 Oct 2026)
+
+Reported from the Coach side, with a minimal repro. All four points were true.
+1. `Verse 1: Singer A` (no brackets) was read by the library as a comment, and `Outro: Singer B` as a metadata tag named Outro. No sections, no error. Cause: the bare-label pattern allowed a colon only at the end of the line. It now allows a short performer part after the colon (not a sentence).
+2. `Pre-Chorus: Singer A` was read as a chord over a lyric, and `check` failed the load safely. Same fix.
+3. `check` counted only `[Header]` lines for `sections-missing`. It now also counts unbracketed headers, against the larger of the two kinds (a whole-line `[note]` is not always a header).
+4. `format --as text` put the performer on its own line. New `--as lyrics-only` writes `[Label: Performer]` on one line (the full output spec, from the Coach's request, is in functions.md under `format`).
+
+Not done: guessing `lyrics-only` as the format for a sheet with no chords. The sections come out right either way.
+
+Run on the 103 Word files after the change: the same 14 fail as before. Four more fail by design: Word's temporary lock files (`~$name.docx`) are now refused as "does not look like a text file" instead of being read as a song.

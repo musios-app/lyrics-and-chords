@@ -449,3 +449,94 @@ test("a file that cannot be read gives a plain message that says what to do", ()
   assert.match(message(file("Song.rtf", "{\\rtf1\\ansi Invented words}")), /is a Rich Text \(\.rtf\) file/);
   assert.match(message(dir), /that is a folder, not a file\./);
 });
+
+// ---- Unbracketed "Label: Performer" headers (bug report, 10 Oct 2026) -------------------------------------
+
+const performerSheet =
+  "title: Invented Song\nartist: Someone\n\nVerse 1: Singer A\nfirst line here\nsecond line here\n\nPre-Chorus: Singer A\nthird line here\n\n" +
+  "Chorus: Singer B\nfourth line here\n\nOutro: Singer B\nlast line here\n";
+
+test("headers written as 'Label: Performer' without brackets become sections, with the performer as a comment", () => {
+  const { code, result } = load(file("performers.txt", performerSheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(sectionsOf(result.song), ["Verse 1", "Pre-Chorus", "Chorus", "Outro"]);
+  assert.deepEqual(commentsOf(result.song), ["Singer A", "Singer A", "Singer B", "Singer B"]);
+  assert.equal(lyricLinesOf(result.song).length, 5, "the five sung lines, and no header kept as a lyric");
+});
+
+test("check says so when a header written without brackets has no section in the song", () => {
+  const original = file("headers-lost.txt", "Verse 1: Singer A\nfirst line here\n\nChorus: Singer B\nsecond line here\n");
+  const flat = run("parse.mjs", [file("flat.txt", "first line here\nsecond line here\n"), "--format", "lyrics-only"]).stdout;
+  const checked = JSON.parse(run("check.mjs", ["--original", original], flat).stdout);
+  assert.ok(checked.problems.some((p) => p.kind === "sections-missing" && p.headersInOriginal === 2), JSON.stringify(checked.problems));
+});
+
+const lyricsOnlyOf = (path, ...extra) => load(path, "--as", "lyrics-only", ...extra).result;
+
+test("--as lyrics-only: facts first, then one block per section with [Label: Performer], no facts inside", () => {
+  const result = lyricsOnlyOf(file("performers2.txt", performerSheet));
+  assert.equal(
+    result.output,
+    "Title: Invented Song\nArtist: Someone\n\n[Verse 1: Singer A]\nfirst line here\nsecond line here\n\n[Pre-Chorus: Singer A]\nthird line here\n\n" +
+      "[Chorus: Singer B]\nfourth line here\n\n[Outro: Singer B]\nlast line here\n",
+  );
+});
+
+test("--as lyrics-only: a chords-only section is its [Label] alone, and chords, bars, marks and comments are left out", () => {
+  const sheet = "{title: Invented Demo}\n{key: D minor}\n\n{start_of_part: Intro}\n[Am] [G]\n{end_of_part}\n\n" +
+    "{start_of_verse: Verse 1}\n[Am]First invented  line\n{comment: repeat}\n[G]Second invented line\n{end_of_verse}\n";
+  const result = lyricsOnlyOf(file("chords-only-intro.cho", sheet));
+  assert.equal(result.output, "Title: Invented Demo\nKey: D minor\n\n[Intro]\n\n[Verse 1]\nFirst invented line\nSecond invented line\n");
+});
+
+test("--as lyrics-only: lines outside any section come first, under no header, with their stanza break", () => {
+  const result = lyricsOnlyOf(file("loose.txt", "Loose invented one\nLoose invented two\n\nLoose invented three\n"));
+  assert.equal(result.output, "Loose invented one\nLoose invented two\n\nLoose invented three\n");
+});
+
+for (const [label, make] of [
+  ["a chords-above-words file", () => join(EXAMPLES, "5-chords-above-words.txt")],
+  ["a ChordPro file", () => join(EXAMPLES, "4-chordpro.cho")],
+  ["pasted text", () => join(EXAMPLES, "1-pasted-text.txt")],
+  ["a Word file", () => docx("lyrics-only.docx", true)],
+]) {
+  test(`--as lyrics-only on ${label}: the lyric lines are those of the checked song, word for word`, () => {
+    const result = lyricsOnlyOf(make());
+    assert.notEqual(result.status, "failed");
+    const squash = (t) => t.replace(/\s+/g, " ").trim();
+    const wanted = lyricLinesOf(result.song).map(squash).filter(Boolean);
+    const written = result.output.split("\n").filter((l) => l.trim() && !/^\[.*\]$/.test(l) && !/^[A-Z][a-z]+: /.test(l)).map(squash);
+    // facts like "Title: x" are written as lines of their own, so leave them out of the comparison
+    assert.deepEqual(written.slice(-wanted.length), wanted);
+    assert.doesNotMatch(result.output, /^[A-G][#b]?(m|maj|min|sus|add)?\d*(\/[A-G])?(\s|$)/m, "no chord lines");
+  });
+}
+
+test("--as lyrics-only never writes a song that fails the check", () => {
+  const { code, result } = load(file("fails.txt", "{title: x\nmore words\n"), "--as", "lyrics-only");
+  assert.equal(code, 1);
+  assert.equal(result.output, undefined);
+});
+
+test("Word's temporary lock files (~$name.docx) are refused in plain words, not read as a song", () => {
+  const message = load(file("~$Invented.docx", "\u0003Word lock file\u0000\u0000")).result.problems[0].message;
+  assert.match(message, /does not look like a text file/);
+});
+
+test("text with inline chords, labels without brackets and a bracketed bar line keeps sections and chords", () => {
+  const sheet =
+    "INTRO\n[Am | G/B]\n\nVERSE 1\n\n[Am] First invented line\n[G/B] Second invented line\n\nCHORUS\n\n[C] Third invented line\n";
+  const { code, result } = load(file("mixed.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(sectionsOf(result.song), ["INTRO", "VERSE 1", "CHORUS"]);
+  assert.ok(chordsOf(result.song).includes("Am | G/B"), "the bar line is chords, not a section title");
+});
+
+test("a bar line whose closing ] is missing is named by line in the message", () => {
+  const sheet = "INTRO\n[Am | G/B\n\nVERSE 1\n\n[Am] First invented line\n";
+  const { result } = load(file("unclosed-bar.txt", sheet));
+  assert.equal(result.status, "failed");
+  assert.match(result.problems[0].message, /Line 2 has a "\[" that is never closed/);
+});

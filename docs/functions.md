@@ -131,16 +131,16 @@ check(original: string, song: Song): {
 - Metadata and section lines are ignored; only lyric lines count.
 - A failure means the caller must stop and fall back or ask the writer.
 - Does not correct anything, including look-alike characters.
-- Besides lyrics it checks that no header was turned into a chord: `not-a-chord` (a chord position holding something that is not a chord name) and `sections-missing` (fewer sections than `[Header]` lines in the original). A bracket counts as chords only if every word in it is a chord, so `[Verse 1: Ann B]` is a header.
+- Besides lyrics it checks that no header was turned into a chord: `not-a-chord` (a chord position holding something that is not a chord name) and `sections-missing` (fewer sections than `[Header]` lines in the original). A bracket counts as chords only if every word in it is a chord, so `[Verse 1: Ann B]` is a header. Headers written without brackets (`Verse 1`, `CHORUS`, `Chorus: Singer B`) are counted for `sections-missing` too, against the larger of the two kinds.
 - Each problem is one of these kinds, so a caller can act on it: `changed` (a song line and the original line it came from, with `onlyInOriginal` and `onlyInSong` word lists, and `extraBefore` or `extraAfter` when the original line is the song line plus extra text, such as page clutter), `missing` (an original lyric line with no counterpart in the song) and `extra` (a song line with no counterpart in the original). Original line numbers and song lyric line numbers are both given.
 - The caller fixes a failure by stating line-level operations on the writer's original (for example "line 1 is page text; remove it"), never by retyping the document, then runs again, with two attempts at most before asking the writer.
 
 ## 6. format (exists: `scripts/format.mjs`)
 
 ```ts
-format(song: Song, as: "text" | "chordpro" | "chords-over-words"): string
+format(song: Song, as: "text" | "chordpro" | "chords-over-words" | "lyrics-only"): string
 ```
-- Writes the song back out. Chord names are written exactly as read: the library's default rewrites them (`Ebmaj7` becomes `Ebma7`, `Gmin7` becomes `Gm7`), so both rewriting options are turned off. Text and chords-over-words output show only some of the facts (no date or version); ChordPro shows all of them.
+- Writes the song back out. Chord names are written exactly as read: the library's default rewrites them (`Ebmaj7` becomes `Ebma7`, `Gmin7` becomes `Gm7`), so both rewriting options are turned off. Text and chords-over-words output show only some of the facts (no date or version); ChordPro shows all of them. `lyrics-only` (added 10 Oct 2026 at the Songwriting Coach's request, so the Coach needs no knowledge of the JSON) writes plain text: (1) the song facts as `Key: value` lines in the song's order (title, artist, key, time, tempo, capo and the other fact names); (2) lyric lines outside any section, if any, under no header, with a blank line between stanzas; (3) each section as a block, a `[Label]` line (the performer kept, as in `[Verse 1: Ann B]`) and its lyric lines, with one blank line between blocks and none inside one. Lyric lines are joined from the chord-and-lyric pairs, and runs of spaces become one. Chords, bar marks, repeat marks and comment lines are left out. A section with no lyric lines is its `[Label]` line alone. Through `load --as lyrics-only` a song that fails the check gets no output.
 - Round trip on plain lyrics is exact apart from one trailing newline.
 - Errors: unknown output → exit 2; input cannot be read → exit 1.
 

@@ -1,6 +1,6 @@
 {
   "name": "lyrics-and-chords",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Lyrics & Chords skill: loads song lyric and chord sheets and returns ChordSheetJS JSON",
   "license": "GPL-2.0-only",

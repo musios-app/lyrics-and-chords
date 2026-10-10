@@ -9,7 +9,7 @@ import {
   UltimateGuitarParser,
   ChordSheetSerializer,
 } from "chordsheetjs";
-import { CHORD, MARK, chordTokens } from "./chord-words.mjs";
+import { CHORD, MARK, SECTION_HEADER, chordTokens } from "./chord-words.mjs";
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
@@ -70,7 +70,6 @@ if (!parsers[format] && format !== "lyrics-only") {
 // or as lyrics: "V1" becomes a "V" chord and a "1". Put each such label, and only a label standing on a
 // line of its own, in brackets, keeping the writer's wording, so it is read as a section header.
 // Not done for ChordPro, where a bracket means a chord, nor for a line under a chord line (that is a lyric).
-const BARE_HEADER = /^\s*(?:(?:intro|outro|verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|solo|interlude|instrumental|hook|refrain|tag|coda|break(?:down)?|middle\s*8?)(?:\s*\d+)?|v\d+|ch\d+|pre\d*|post\d*|br\d*)\s*:?\s*(?:\(?x\d+\)?)?\s*$/i;
 function wrapBareHeaders(t) {
   let wrapped = 0;
   let previous = "";
@@ -78,7 +77,7 @@ function wrapBareHeaders(t) {
     const above = previous.trim().split(/\s+/).filter(Boolean);
     const underChords = above.length > 0 && above.every((w) => CHORD.test(w) || /^[|/x-]+$/.test(w));
     previous = line;
-    if (!underChords && BARE_HEADER.test(line)) {
+    if (!underChords && SECTION_HEADER.test(line)) {
       wrapped++;
       return `[${line.trim().replace(/\s*:$/, "")}]`;
     }
@@ -92,7 +91,7 @@ function wrapBareHeaders(t) {
 // Asking for ultimate-guitar with --format still uses the library's reader.
 const ownSections = format === "ultimate-guitar" && !forced;
 let bareLabels = 0;
-if (format === "chords-over-words" || ownSections) {
+if (format === "chords-over-words" || format === "chordpro" || ownSections) {
   const { text: wrappedText, wrapped } = wrapBareHeaders(text);
   if (wrapped) {
     text = wrappedText;
@@ -286,7 +285,7 @@ try {
       let headers = 0;
       toParse = toParse.split("\n").flatMap((line) => {
         const m = line.match(/^\s*\[([^\]]+)\]\s*$/);
-        if (!m || m[1].trim().split(/\s+/).every((w) => CHORD.test(w))) return [line];
+        if (!m || m[1].trim().split(/\s+/).every((w) => CHORD.test(w) || MARK.test(w))) return [line];
         headers++;
         return sectionStart(m[1]).map((l) => `{${l.items[0].name}: ${l.items[0].value}}`);
       }).join("\n");

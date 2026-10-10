@@ -4,7 +4,7 @@ description: Loads song lyric and chord files (plain lyrics, chords above words,
 license: GPL-2.0-only
 compatibility: Requires Node.js 18 or later. Makes no network requests.
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Lyrics & Chords (provisional)
@@ -23,7 +23,7 @@ Seven scripts in `scripts/`. `load.mjs` runs the others in order; each of them a
 | `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, writer, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
 | `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
 | `check.mjs --original <file> [--set-aside 1,2]` | Confirms the lyric lines in the parsed song match the original, and that every chord is still there. Ignores all spacing; compares words and punctuation exactly. Reports `changed`, `missing` and `extra` lines, `chords-missing`, `not-a-chord` (something other than a chord name sitting in a chord position, such as a header or a word) and `sections-missing` (fewer sections in the song than `[Header]` lines in the original). Lines named in `--set-aside` are not reported as missing and are listed in the output. | 0 match; 1 mismatch; 2 bad option or input |
-| `format.mjs [--as text \| chordpro \| chords-over-words]` | Turns the parsed JSON back into text. Chord names are written exactly as read (the library would rewrite `maj7` as `ma7`). | 0 done; 1 could not format; 2 unknown output |
+| `format.mjs [--as text \| chordpro \| chords-over-words \| lyrics-only]` | Turns the parsed JSON back into text (`lyrics-only`: the facts as `Key: value` lines, then each section as a `[Label: Performer]` line and its lyric lines, with no chords or comments). Chord names are written exactly as read (the library would rewrite `maj7` as `ma7`). | 0 done; 1 could not format; 2 unknown output |
 
 ```
 node scripts/parse.mjs song.cho | node scripts/add-metadata.mjs --meta facts.json | node scripts/format.mjs --as chordpro

@@ -26,7 +26,7 @@ Options:
   --facts FILE      JSON file of song facts (title, artist, lyricist, composer, date, ... see add-metadata.mjs).
   --set-aside LIST  Original line numbers that are not lyrics (a title, a credit line), such as 1,2.
   --format NAME     Force the reader: chordpro, chords-over-words, ultimate-guitar or lyrics-only.
-  --as NAME         Also write the song out: text, chordpro or chords-over-words.
+  --as NAME         Also write the song out: text, chordpro, chords-over-words or lyrics-only.
   --output FILE     With --as, save the written song to FILE instead of putting it in the result.
   --save FOLDER     Save the song as a readable file in FOLDER (made if missing), named "<title> - <artist>.txt".
                     FOLDER can be "default": the user's Documents folder (macOS and Windows), else Desktop, else
@@ -71,8 +71,8 @@ if (positional.length !== 1) {
   process.exit(2);
 }
 const asValue = value("--as");
-if (asValue && !["text", "chordpro", "chords-over-words"].includes(asValue)) {
-  console.error(`Error: --as must be text, chordpro or chords-over-words. Received: "${asValue}"`);
+if (asValue && !["text", "chordpro", "chords-over-words", "lyrics-only"].includes(asValue)) {
+  console.error(`Error: --as must be text, chordpro, chords-over-words or lyrics-only. Received: "${asValue}"`);
   process.exit(2);
 }
 if (args.includes("--open") && !value("--save")) {

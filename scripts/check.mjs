@@ -4,7 +4,7 @@
 // Prints a JSON result on standard output; a one-line summary goes to standard error.
 // Exit codes: 0 lyrics match; 1 they do not; 2 bad option or unreadable input.
 import { readFileSync } from "node:fs";
-import { CHORD, MARK, chordTokens } from "./chord-words.mjs";
+import { CHORD, MARK, SECTION_HEADER, chordTokens } from "./chord-words.mjs";
 import { norm, songLyrics, originalLines, matchInOrder, parseLineList } from "./lyric-lines.mjs";
 
 const args = process.argv.slice(2);
@@ -137,7 +137,7 @@ const accounted = (o) => {
   return facts.some((f) => {
     const v = f && f.trim();
     // "Verse 1:" is the section "Verse 1": a trailing colon on a label does not matter.
-    return v && (t === v || t.replace(/\s*:$/, "") === v || new RegExp(`^[A-Za-z][A-Za-z ]*:\\s*${escape(v)}$`).test(t));
+    return v && (t === v || t.replace(/\s*:$/, "") === v || new RegExp(`^[A-Za-z][A-Za-z0-9 -]*:\\s*${escape(v)}$`).test(t));
   });
 };
 // Chords: every chord in the original should still be in the song.
@@ -189,10 +189,15 @@ song.lines.forEach((line, i) => {
 
 // Section headers in the original ([Label] on a line of its own, with something in it that is not a
 // chord) against the sections in the song.
-const headerLines = origLines.filter((o) => {
+const bracketHeaders = origLines.filter((o) => {
   const m = o.raw.trim().match(/^\[([^\]]+)\]$/);
   return m && !m[1].trim().split(/\s+/).every((w) => CHORD.test(w));
 });
+// Labels written without brackets ("Verse 1", "Chorus: Singer B") count too, unless they sit under a chord line.
+// The two kinds are not added together: a whole-line [note] is not always a header, so a song with
+// both is checked against whichever kind has more.
+const bareHeaders = origLines.filter((o, k) => SECTION_HEADER.test(o.raw) && !(k > 0 && isChordLine(origLines[k - 1].raw)));
+const headerLines = bareHeaders.length > bracketHeaders.length ? bareHeaders : bracketHeaders;
 const sectionsInSong = song.lines.reduce((n, l) => n + l.items.filter((x) => x.type === "tag" && /^start_of_/.test(x.name)).length, 0);
 
 const droppedOriginal = origLines.map((_, k) => k).filter((k) => !matchedOriginal.has(k) && !accounted(origLines[k]));

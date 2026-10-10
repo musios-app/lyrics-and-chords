@@ -9,3 +9,9 @@ export const MARK = /^(\||\|\||\/|x|-|N\.C\.|\(?[0-9]+x\)?|\(?x[0-9]+\)?|:\|\|?|
 // ("Emaj7|" is "Emaj7" and "|").
 export const chordTokens = (line) => [...line.matchAll(/\|+|[^\s|]+/g)].map((m) => ({ text: m[0], index: m.index }));
 export const CHORD = new RegExp(`^[A-G][#b♭♯]?${QUALITY}(?:\\/[A-G][#b♭♯]?${QUALITY})?$`);
+
+// A section label written without brackets: "Verse 1", "CHORUS", "V1", "Pre-Chorus:", "Chorus x2", and with a
+// performer or two after a colon: "Verse 1: Singer A". The performer part is short and is not a sentence.
+// Used by parse.mjs (to make it a section) and check.mjs (to count the sections that should exist).
+export const SECTION_HEADER = /^\s*(?:(?:intro|outro|verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|solo|interlude|instrumental|hook|refrain|tag|coda|break(?:down)?|middle\s*8?)(?:\s*\d+)?|v\d+|ch\d+|pre\d*|post\d*|br\d*)\s*(?::\s*(?:[^\s.!?\[\]:][^.!?\[\]:]{0,60})?)?\s*(?:\(?x\d+\)?)?\s*$/i;
+
