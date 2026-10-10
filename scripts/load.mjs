@@ -7,9 +7,9 @@
 // 1 failed (see "problems"); 2 bad option.
 // A web address is fetched once, because the user gave it; the user is responsible for having the
 // right to use what they load. Only Genius lyrics pages are understood today.
-import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, readSync, closeSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { spawn, spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, readSync, closeSync, mkdirSync, existsSync } from "node:fs";
+import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLineList } from "./lyric-lines.mjs";
@@ -34,6 +34,13 @@ Options:
                     (A web page is read as lyrics-only: no chords.)
   --as NAME         Also write the song out: text, chordpro or chords-over-words.
   --output FILE     With --as, save the written song to FILE instead of putting it in the result.
+  --save FOLDER     Save the song as a readable file in FOLDER (made if missing), named "<title> - <artist>.txt".
+                    FOLDER can be "default": the user's Documents folder (macOS and Windows), else Desktop, else
+                    the home folder. A leading ~/ means the home folder.
+                    with the chords above the words if the song has chords. An existing file is never replaced:
+                    a number is added to the name. The result gives "savedTo". Use this for a song under
+                    copyright, so the lyrics are read in the file and not printed in a conversation.
+  --open            With --save, open the saved file in the computer's default app.
   --help            Show this message.
 
 Result (JSON on standard output):
@@ -45,6 +52,7 @@ Result (JSON on standard output):
   setAside   the lines set aside, if any
   song       the loaded song (not given when status is "failed")
   output     the written song, when --as is given without --output
+  savedTo    the file written by --save
 
 Exit codes: 0 loaded; 1 failed; 2 bad option.`);
   process.exit(0);
@@ -52,7 +60,17 @@ Exit codes: 0 loaded; 1 failed; 2 bad option.`);
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const value = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
-const flagsWithValue = ["--facts", "--set-aside", "--format", "--as", "--output"];
+// "default" is the user's Documents folder (the same name on macOS and Windows), else Desktop, else home.
+const saveFolder = (name) => {
+  const home = homedir();
+  if (name === "default") {
+    for (const folder of ["Documents", "Desktop"]) if (existsSync(join(home, folder))) return join(home, folder);
+    return home;
+  }
+  if (name === "~") return home;
+  return /^~[\\/]/.test(name) ? join(home, name.slice(2)) : name;
+};
+const flagsWithValue = ["--facts", "--set-aside", "--format", "--as", "--output", "--save"];
 const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && flagsWithValue.includes(args[i - 1])));
 
 if (positional.length !== 1) {
@@ -62,6 +80,10 @@ if (positional.length !== 1) {
 const asValue = value("--as");
 if (asValue && !["text", "chordpro", "chords-over-words"].includes(asValue)) {
   console.error(`Error: --as must be text, chordpro or chords-over-words. Received: "${asValue}"`);
+  process.exit(2);
+}
+if (args.includes("--open") && !value("--save")) {
+  console.error("Error: --open needs --save, to say which file to open. See --help.");
   process.exit(2);
 }
 if (value("--output") && !asValue) {
@@ -247,6 +269,36 @@ try {
       result.notes.push(`wrote ${asValue} to ${value("--output")}`);
     } else {
       result.output = written.stdout;
+    }
+  }
+  // 7. Save a readable copy for the user to open (for a song whose lyrics are not to be printed in chat).
+  if (value("--save")) {
+    const hasChords = songJson.lines.some((l) => l.items.some((x) => x.type === "chordLyricsPair" && x.chords));
+    const readable = run("format.mjs", ["--as", hasChords ? "chords-over-words" : "text"], song);
+    if (readable.status !== 0) fail("save", readable.stderr.trim());
+    const factValue = (name) => {
+      for (const l of songJson.lines) for (const x of l.items) if (x.type === "tag" && x.name === name && x.value) return String(x.value);
+      return "";
+    };
+    const clean = (t) => t.replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim();
+    const base = clean([factValue("title"), factValue("artist")].filter(Boolean).join(" - ")) || "song";
+    const folder = saveFolder(value("--save"));
+    mkdirSync(folder, { recursive: true });
+    let target = join(folder, `${base}.txt`);
+    for (let n = 2; existsSync(target); n++) target = join(folder, `${base} (${n}).txt`);
+    writeFileSync(target, readable.stdout);
+    result.savedTo = target;
+    result.notes.push(`saved ${hasChords ? "with chords" : "as text"} to ${target}`);
+    if (args.includes("--open")) {
+      const opener = process.platform === "darwin" ? ["open", [target]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", target]] : ["xdg-open", [target]];
+      try {
+        const child = spawn(opener[0], opener[1], { detached: true, stdio: "ignore" });
+        child.on("error", () => {});
+        child.unref();
+        result.notes.push("opened the file");
+      } catch {
+        result.notes.push("could not open the file; it is saved at the path above");
+      }
     }
   }
   finish(0);

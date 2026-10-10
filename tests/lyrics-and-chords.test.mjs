@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -330,4 +330,54 @@ test("a chord line on its own, with no lyric below, is kept as chords", () => {
   const { code, result } = load(file("alone.txt", "[Intro]\n| Amin | D/F# G(maj7) |\n\n[Verse 1]\nMade up line\n"));
   assert.equal(code, 0);
   assert.ok(chordsOf(result.song).includes("G(maj7)"));
+});
+
+// ---- Saving a readable copy ----------------------------------------------------------------------------
+
+test("--save writes a readable file named from the title and artist, and never replaces one", () => {
+  const folder = join(dir, "saved");
+  const path = file("save-me.txt", "[Verse 1]\nAm       C\nMade up words here\n");
+  const facts = file("save-facts.json", JSON.stringify({ title: "Invented: Song?", artist: "Ann B", date: "2020" }));
+  const first = load(path, "--facts", facts, "--save", folder).result;
+  assert.equal(first.status, "ok");
+  assert.match(first.savedTo, /Invented Song - Ann B\.txt$/, "characters a file name cannot hold are removed");
+  const text = readFileSync(first.savedTo, "utf8");
+  assert.match(text, /Am/, "chords are kept when the song has chords");
+  assert.match(text, /Made up words here/);
+  const second = load(path, "--facts", facts, "--save", folder).result;
+  assert.match(second.savedTo, /Invented Song - Ann B \(2\)\.txt$/, "an existing file is not replaced");
+  assert.equal(readFileSync(first.savedTo, "utf8"), text, "and is left as it was");
+});
+
+test("--save writes plain text when the song has no chords", () => {
+  const folder = join(dir, "saved-plain");
+  const { result } = load(file("plain-save.txt", "[Verse 1]\nMade up words here\n"), "--save", folder);
+  assert.match(result.savedTo, /song\.txt$/, "a song with no title or artist is called song");
+  assert.doesNotMatch(readFileSync(result.savedTo, "utf8"), /^[A-G][a-z0-9#]*\s*$/m);
+});
+
+test("--open needs --save", () => {
+  const r = run("load.mjs", [file("open-alone.txt", "One line\n"), "--open"]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /--open needs --save/);
+});
+
+test("--save default goes to Documents, then Desktop, then the home folder", () => {
+  const sheet = file("default-save.txt", "[Verse 1]\nMade up words here\n");
+  const attempt = (home) => {
+    const r = spawnSync(process.execPath, [join(scripts, "load.mjs"), sheet, "--save", "default"], {
+      encoding: "utf8", env: { ...process.env, HOME: home, USERPROFILE: home },
+    });
+    return JSON.parse(r.stdout).savedTo;
+  };
+  const withBoth = join(dir, "home1");
+  mkdirSync(join(withBoth, "Documents"), { recursive: true });
+  mkdirSync(join(withBoth, "Desktop"), { recursive: true });
+  assert.equal(attempt(withBoth), join(withBoth, "Documents", "song.txt"));
+  const desktopOnly = join(dir, "home2");
+  mkdirSync(join(desktopOnly, "Desktop"), { recursive: true });
+  assert.equal(attempt(desktopOnly), join(desktopOnly, "Desktop", "song.txt"));
+  const bare = join(dir, "home3");
+  mkdirSync(bare, { recursive: true });
+  assert.equal(attempt(bare), join(bare, "song.txt"));
 });
