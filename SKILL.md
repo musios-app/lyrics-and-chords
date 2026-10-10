@@ -144,7 +144,7 @@ Built (`load.mjs`) for pasted text, files and Word files. One entry point that r
 
 ## Title, credits and other facts
 
-Plain-text sheets usually open with a title and a credit line that nothing marks as such (`Song D`, then `Music & Lyrics: Andrew Hunt - 17 April 2025 (v4)`). The parser reads them as lyric lines. Fixing that is Claude's job, with scripts doing the exact steps:
+Plain-text sheets usually open with a title and a credit line that nothing marks as such (`Invented Song`, then `Music & Lyrics: Ann B - 17 April 2025 (v4)`). The parser reads them as lyric lines. Fixing that is Claude's job, with scripts doing the exact steps:
 
 1. After `parse`, read the lines before the first section. Decide which are the title, the credits, a date, a version, a key or a tempo. Labelled lines such as `Key: D major` are already read as facts.
 2. Write a facts file for `add-metadata` (title, lyricist, composer, date, version...). Copy words exactly as written. Use only what the lines say: do not guess a year or a role.

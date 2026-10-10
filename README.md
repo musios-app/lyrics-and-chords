@@ -22,6 +22,16 @@ The package needs only Node.js 18 or later. To install it:
 
 The GPL asks that anyone who receives the package can get the source. Until this repository is public, share the `.skill` file only with people you also give the repository to.
 
+## Publishing to musios.app
+
+Same pattern as the Songwriting Coach. `site/lyrics-and-chords/index.md` is the download page (unlisted: `sitemap: false`, `noindex: true`). After `python3 build.py` and a commit:
+
+```
+python3 publish_site.py                 # or --site PATH for a different clone of musios-app.github.io
+```
+
+This copies the page, the `.skill` (a current copy and a versioned one) and a source zip into `projects/lyrics-and-chords/` of the site clone. It refuses to run if the `.skill` is out of date or tracked files are uncommitted, and it never touches git in the site folder: review and push the site yourself. The source zip is made with `git archive`, because the GPL asks that anyone who receives the `.skill` can get the source.
+
 ## ChordSheetJS
 
 - Home page: https://github.com/martijnversluis/ChordSheetJS

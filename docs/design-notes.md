@@ -85,7 +85,7 @@ Eight ChordPro files from Andrew's own collection went through `scripts/parse.mj
 
 **Standard files work.** Tags, inline chords and closed sections came out correctly.
 
-**Andrew's own file ("Dawn and Dusk"):**
+**One of Andrew's own ChordPro files:**
 1. Two `{title}` lines: the second holds the credit, date and version ("Music & Lyrics: Name - date (v2)"). It should become credits, date and version facts.
 2. `Time: 4/4 (...)` is written without braces, so it was read as a lyric line and not as the `time` fact.
 3. Sections are opened (`start_of_verse`, `start_of_chorus`) and never closed. ChordSheetJS accepts that; the next start implies the end.
@@ -186,7 +186,7 @@ A Genius page whose headers carry a performer (`[Verse 1: Name]`) failed to load
 ### Run on 104 of Andrew's own Word files (10 Oct 2026)
 
 The first real-world corpus. Result after the fixes above: 90 of 104 load; the other 14 fail loudly (never silently).
-- 5 files (Song A versions, one more) have a `[` that is never closed on a bar line. A real error in the file; the message names the line.
+- 5 files (versions of two songs) have a `[ that is never closed on a bar line. A real error in the file; the message names the line.
 - 9 files have chord lines with a word in them (`Intro | Gm79 | C7`). Not handled: read as lyric lines and flagged by `check`.
 - What the corpus taught: the library's chord reading cannot be trusted line by line (it rewrites `maj7`/`♭`, drops lines on one unknown chord, and its Ultimate Guitar reader drops bar-line chord lines and takes CHORUS for a chord). So chord lines it does not return exactly are read by this skill, and the Ultimate Guitar style is read with the chords-over-words reader plus sections built here.
 - A file in a Dropbox cloud folder can take a minute to open the first time (it is downloaded then). Not a skill fault; `load` limits each step to two minutes.
