@@ -32,17 +32,16 @@ Decided 9 Oct 2026: callers ask the skill to **load** content. Most other functi
 | `load` | callers (public) | The entry point. See below. |
 | `addMetadata` | callers (public) and `load` | Public because it is how answers to "what is missing?" are added. |
 | `format` | callers (public) | Writes the loaded song back out. |
-| `parse`, `extractPage`, `labelSections`, `check` | `load` only (internal) | Not called directly by a user. |
+| `parse`, `labelSections`, `check` | `load` only (internal) | Not called directly by a user. |
 
 Because a skill is instructions the assistant follows, not a function it can call, `load` is a workflow written in `SKILL.md`. A script does the exact steps; Claude does the judgement steps.
 
-## 0. load (exists: `scripts/load.mjs`; pasted text, files, Word files (text only), saved Genius pages and Genius addresses; other sites planned)
+## 0. load (exists: `scripts/load.mjs`; pasted text, files and Word files (text only))
 
 ```ts
 load(source:
   | { text: string }            // pasted by the user
   | { file: string }            // a document pasted or dropped by the user
-  | { url: string }             // one page, fetched because the user gave the address
 ): {
   status: "ok" | "needs-info" | "failed";
   song?: Song;                  // present unless failed
@@ -53,8 +52,8 @@ load(source:
 ```
 
 What it does, in order:
-1. **Get the content.** From the text; from the file (plain text, ChordPro, saved web page, maybe Word); or from the page at the address.
-2. **Extract.** For a web page, take the lyrics and song facts out of it (`extractPage`) and drop site noise. For anything else, use the text as given.
+1. **Get the content.** From the pasted text, the file (plain text, ChordPro), or the text of a Word file.
+2. **Prepare.** Take the text as given (a Word file's text comes from `read-docx`).
 3. **Parse** it (`parse`) into a `Song`.
 4. **Label sections** (`labelSections`) and pick out any title or metadata lines mixed into the lyrics.
 5. **Check** (`check`) that the lyric lines in the song match the source text. A mismatch means `status: "failed"`; nothing is returned as if it were fine.
@@ -69,19 +68,7 @@ When the status is `needs-info`:
 
 **Deferred (9 Oct 2026):** the test that decides what counts as a lyric line is not built. Until it is, a lyric-free bar chart loads as a song with bogus lyric lines (the library reads bars and section labels as lyrics: `Song C.pro` gave 47) and no error is raised. Songs with real lyrics are unaffected.
 
-Rules: lyric text is never changed; when unsure, ask; everything runs locally except fetching a page the user has given an address for.
-
-### The url question (decided 9 Oct 2026)
-
-Andrew decided: make it work, and leave respect for copyright to the user. `load(url)` fetches the one page at the address the user gives.
-
-- **One address, one page.** No crawling, no searching, no following links, no bulk download. The skill does not look for lyrics; the user brings the address.
-- **The user is responsible** for having the right to use what they load. `SKILL.md` and the README say so in plain words.
-- **The network is used only for that fetch.** Nothing about the lyrics is sent anywhere else, and nothing is stored beyond the session unless the user asks.
-- **A blocked or failed fetch is reported plainly,** and the user is asked to save the page or paste the text instead (`load` accepts both).
-- **No site-specific tricks to get around blocking** (for example pretending to be a browser).
-
-This replaces the earlier rule that the skill never fetches anything.
+Rules: lyric text is never changed; when unsure, ask; everything runs locally.
 
 ## 1. parse (exists: `scripts/parse.mjs`) — internal to `load`
 
@@ -96,20 +83,6 @@ parse(input: { text: string } | { file: string }, options?: { format?: Format })
 - Does not find sections, titles or metadata in plain lyrics; that is `labelSections` and `addMetadata`.
 - Formats: ChordPro, chords over words, Ultimate Guitar style, and `lyrics-only` (text with no chords: `[Label: performers]` becomes the section "Label" plus a `comment` holding the performers; used for web pages).
 - Errors: unknown format → exit 2. Text the parser cannot read → exit 1 with a message that gives the line and column where it stopped, what it found and expected, the offending line and the one before it with a marker, a hint when the line before has an unclosed `{` or `[`, and, when the format was guessed, the other formats to try with `--format`.
-
-## 2. extractPage (exists for Genius: `scripts/read-page.mjs`)
-
-```ts
-extractPage(input: { file: string }, options?: { site?: "genius" }): {
-  lyrics: string;               // clean lyric text, as the site holds it
-  facts: Facts;                 // song data only; site noise dropped
-  notes: Problem[];             // for example "no embedded data found"
-}
-```
-- Reads a page that was saved, pasted or fetched by `load` from an address the user gave. It does not fetch anything itself.
-- Genius first: lyrics and facts come from the page's embedded data, not the visible text (which carries clutter).
-- Keeps title, artist, writers, album, release date, language, and key and tempo if present. Ignores ids, counts, credits, flags, recording location, ads and links (see `design-notes.md`).
-- Errors: not a recognised page → returns `notes` and no lyrics, exit 1.
 
 ## 3. labelSections (planned, Claude plus script)
 
@@ -180,13 +153,13 @@ run(input: { text: string } | { file: string }, options?: {
   facts?: Facts; as?: "text" | "chordpro" | "chords-over-words"; output?: string;
 }): { song: Song; output: string; check: ReturnType<typeof check>; questions: string[] }
 ```
-- Runs the fixed order: read (or `extractPage`), `parse`, `labelSections`, `addMetadata`, `check`, `format`. One command for the caller.
+- Runs the fixed order: read, `parse`, `labelSections`, `addMetadata`, `check`, `format`. One command for the caller.
 - Stops at the first failed `check` and returns the problem. Never returns output that failed the check.
 - `output` writes to a file instead of standard output, so long songs do not flood the conversation.
 
 ## Rules for every function
 
-- Local, except `load(url)` fetching the one page the user gave. No other network calls.
+- Local: no network calls.
 - Lyric text is never changed, corrected or normalised.
 - When input is unclear, return a plain error or a question; do not guess.
 - Data goes to standard output as JSON; progress and warnings go to standard error.

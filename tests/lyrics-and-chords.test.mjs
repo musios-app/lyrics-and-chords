@@ -25,24 +25,6 @@ const load = (path, ...args) => {
   return { code: r.status, result: JSON.parse(r.stdout) };
 };
 
-// A page shaped like a Genius lyrics page: the data the page embeds for itself, with invented content.
-function fakePage(lyrics, { writers = ["Ann B"], date = "2020-01-01" } = {}) {
-  const children = [];
-  lyrics.split("\n").forEach((line, i, all) => {
-    children.push(line);
-    if (i < all.length - 1) children.push({ tag: "br" });
-  });
-  const state = {
-    songPage: { song: 1, lyricsData: { body: { tag: "root", children } } },
-    entities: {
-      songs: { 1: { title: "Invented Song", artistNames: "Ann B & Cal", writerArtists: [10], releaseDate: date } },
-      artists: { 10: { name: writers[0] } },
-      albums: {},
-    },
-  };
-  const literal = JSON.stringify(state).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-  return `<!doctype html><html><body><script>window.__PRELOADED_STATE__ = JSON.parse('${literal}');</script></body></html>`;
-}
 const sectionsOf = (song) => song.lines.flatMap((l) => l.items.filter((x) => x.type === "tag" && x.name.startsWith("start_of_")).map((x) => x.value));
 const commentsOf = (song) => song.lines.flatMap((l) => l.items.filter((x) => x.type === "tag" && x.name === "comment").map((x) => x.value));
 const chordsOf = (song) => song.lines.flatMap((l) => l.items.filter((x) => x.type === "chordLyricsPair" && x.chords).map((x) => x.chords));
@@ -54,44 +36,46 @@ const WITH_PERFORMERS = [
   "[Chorus: Ann B & Cal]", "Pretend chorus line", "Pretend chorus again", "", "[Bridge: Cal & Ann B]", "Imaginary bridge line",
 ].join("\n");
 
-test("a page whose headers name performers loads as real sections", () => {
-  const { code, result } = load(file("performers.html", fakePage(WITH_PERFORMERS)));
+const lyricsOnly = (name, text, ...extra) => load(file(name, text), "--format", "lyrics-only", ...extra);
+
+test("lyrics-only text whose headers name performers loads as real sections", () => {
+  const { code, result } = lyricsOnly("performers.txt", WITH_PERFORMERS);
   assert.equal(code, 0);
-  assert.equal(result.status, "ok");
   assert.deepEqual(result.problems, []);
   assert.deepEqual(sectionsOf(result.song), ["Intro", "Verse 1", "Chorus", "Bridge"]);
   assert.deepEqual(commentsOf(result.song), ["Ann B", "Ann B & Cal", "Cal & Ann B"]);
   assert.deepEqual(chordsOf(result.song), [], "no section label may ever appear as a chord");
 });
 
-test("the section count equals the number of bracketed headers on the page", () => {
-  const { result } = load(file("count.html", fakePage(WITH_PERFORMERS)));
+test("the section count equals the number of bracketed headers", () => {
+  const { result } = lyricsOnly("count.txt", WITH_PERFORMERS);
   const headers = WITH_PERFORMERS.split("\n").filter((l) => /^\[.*\]$/.test(l)).length;
   assert.equal(sectionsOf(result.song).length, headers);
 });
 
-test("a page whose headers have no performers loads the same way", () => {
+test("lyrics-only text whose headers have no performers loads the same way", () => {
   const plain = WITH_PERFORMERS.replace(/: [^\]]*\]/g, "]");
-  const { result } = load(file("plain.html", fakePage(plain)));
-  assert.equal(result.status, "ok");
+  const { result } = lyricsOnly("plain.txt", plain);
+  assert.deepEqual(result.problems, []);
   assert.deepEqual(sectionsOf(result.song), ["Intro", "Verse 1", "Chorus", "Bridge"]);
   assert.deepEqual(commentsOf(result.song), []);
   assert.deepEqual(chordsOf(result.song), []);
 });
 
-test("a two-word lyric line such as an ad-lib credit stays a lyric on a page", () => {
+test("a two-word lyric line such as an ad-lib credit stays a lyric", () => {
   const lyrics = ["[Verse 1: Ann B]", "Made up line", "Ann B", "", "[Chorus: Cal]", "Pretend line"].join("\n");
-  const { result } = load(file("adlib.html", fakePage(lyrics)));
-  assert.equal(result.status, "ok");
+  const { result } = lyricsOnly("adlib.txt", lyrics);
+  assert.deepEqual(result.problems, []);
   assert.deepEqual(chordsOf(result.song), []);
   assert.ok(lyricLinesOf(result.song).includes("Ann B"));
 });
 
-test("a page that is not Genius fails with a plain message", () => {
-  const { code, result } = load(file("other.html", "<!doctype html><html><body>hello</body></html>"));
-  assert.equal(code, 1);
-  assert.equal(result.status, "failed");
-  assert.match(result.problems[0].message, /not a page I can read/);
+test("a header with a name in it is not read as chords by the other readers", () => {
+  const lyrics = ["[Verse 1: Ann B]", "Made up line", "Ann B", "", "[Chorus: Cal]", "Pretend line"].join("\n");
+  for (const format of ["chordpro", "chords-over-words", "ultimate-guitar"]) {
+    const { code, result } = load(file(`names-${format}.txt`, lyrics), "--format", format);
+    if (code === 0) assert.deepEqual(chordsOf(result.song).filter((c) => /[a-z]{3,}/.test(c)), [], format);
+  }
 });
 
 test("bare chord letters as headers do not break a chord sheet", () => {

@@ -190,3 +190,19 @@ The first real-world corpus. Result after the fixes above: 90 of 104 load; the o
 - 9 files have chord lines with a word in them (`Intro | Gm79 | C7`). Not handled: read as lyric lines and flagged by `check`.
 - What the corpus taught: the library's chord reading cannot be trusted line by line (it rewrites `maj7`/`♭`, drops lines on one unknown chord, and its Ultimate Guitar reader drops bar-line chord lines and takes CHORUS for a chord). So chord lines it does not return exactly are read by this skill, and the Ultimate Guitar style is read with the chords-over-words reader plus sections built here.
 - A file in a Dropbox cloud folder can take a minute to open the first time (it is downloaded then). Not a skill fault; `load` limits each step to two minutes.
+
+## Deferred (10 Oct 2026, Andrew)
+
+- **A verified-guess fallback for finding a song by name:** if Claude's web search finds no Genius page, build the address from the artist and title and load it, with `load` failing if the page's title and artist differ from the request. It would reverse the current "never guess an address" rule, so it is not built. Finding by search alone often fails, because the search tool cannot see genius.com; until then the user gives the address (or the text).
+- **Nashville numbers** (a ChordPro file with number chords is read, but `check` rejects the numbers; the plain-text version loses its chord lines).
+- **Charts with no lyrics** (bars and section labels only): they load as junk, with no error.
+- **Chord lines that contain a word** (`Intro | Gm79 | C7`): read as lyric lines, and `check` says so (9 of 104 Word files).
+
+## Web sources dropped (10 Oct 2026, Andrew)
+
+The skill works on files, not on web pages. Fair-use concerns were blocking too much (printing or saving the lyrics of copyrighted songs, searching for songs, fetching pages). The mission is: load a reasonable range of lyric files, parse them, clean up or correct where needed, and return a JSON object.
+
+- **Removed:** fetching a web address, the Genius page reader (`read-page.mjs`), "Finding a song by name", the copyrighted-song rule, and the claim that the network is used once. The skill now makes no network requests. All of it is in git history (commits `0da0e57`, `677e4be`) if it is ever wanted again.
+- **Kept:** every file reader and repair, `check`, `set-aside`, facts, Word files, pasted text, `--save` and `--open` (a readable copy of the loaded song), and the `lyrics-only` reader (text with `[Header]` lines and no chords, used when asked for with `--format lyrics-only`).
+- **The three out-of-copyright Genius samples** stay in `tests/samples/genius/` as plain test text.
+- Items above that mention fetching, Genius or finding a song by name are superseded by this section.

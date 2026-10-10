@@ -1,8 +1,8 @@
 ---
 name: lyrics-and-chords
-description: Reads song lyric and chord sheets (plain lyrics, chords above words, inline chords, ChordPro, saved chord-site pages) and returns them as structured JSON, or says plainly what it could not resolve. Runs locally; the only network use is fetching a page whose address the user gives. Use to parse, convert or check a lyric or chord file, to load a Word file or a Genius lyrics page, or when someone names a song to look at ("show me the lyrics for September by Earth, Wind & Fire": Claude finds the Genius page and loads it). Not for critiquing or writing lyrics.
+description: Loads song lyric and chord files (plain lyrics, chords above words, inline chords, ChordPro, Word files, pasted text), repairs what the readers get wrong, checks that no word or chord was lost, and returns a JSON object: the song with its facts and sections, plus anything it could not resolve. Runs entirely offline. Use to load, parse, convert or check a lyric or chord file, not to critique or write lyrics.
 license: GPL-2.0-only
-compatibility: Requires Node.js 18 or later. No network use except fetching a web address the user gives.
+compatibility: Requires Node.js 18 or later. Makes no network requests.
 metadata:
   version: "0.1.0"
 ---
@@ -13,14 +13,13 @@ Version 0.1, provisional. The scripts under "What works now" are built; capabili
 
 ## What works now
 
-Eight scripts in `scripts/`. `load.mjs` runs the others in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
+Seven scripts in `scripts/`. `load.mjs` runs the others in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
 
 | Script | Does | Exit codes |
 |---|---|---|
-| `load.mjs <file \| Word file \| web address \| ->` | **The all-in-one.** Takes a file, pasted text (`-`), a Word file (text only), a saved web page, or a web address (fetched once, because the user gave it; Genius lyrics pages only today; the user is responsible for having the right to use the content). Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `--save FOLDER` (or `--save default`: Documents) writes a readable file named `<title> - <artist>.txt` (chords above the words if the song has chords; never replaces a file) and `--open` opens it in the default app. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
+| `load.mjs <file \| Word file \| ->` | **The all-in-one.** Takes a file, pasted text (`-`) or a Word file (text only). Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `--save FOLDER` (or `--save default`: Documents) writes a readable file named `<title> - <artist>.txt` (chords above the words if the song has chords; never replaces a file) and `--open` opens it in the default app. Prints one JSON object (see "What it returns"). A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
 | `parse.mjs <file>` | Reads one well-formed sheet and prints ChordSheetJS's own JSON, unchanged. Picks ChordPro, chords over words or Ultimate Guitar style itself, or takes `--format` (also `lyrics-only`: text with no chords, where a line that is only `[Something]` is a section header and nothing is ever read as a chord). A sheet it cannot read gives the line and column, the lines around it and a hint. | 0 done; 1 could not parse; 2 unknown format |
 | `read-docx.mjs <song.docx>` | Takes the text out of a Word file: one line for each paragraph, a tab as a space. Comments, deleted text (tracked changes), formatting, styles and pictures are ignored; text inside a table comes out one line per paragraph. | 0 read; 1 not a Word file it can read; 2 bad option or file |
-| `read-page.mjs <page.html>` | Takes the lyrics and song facts (title, artist, writers, album, date) out of a saved Genius page, using the data the page embeds for itself, parsed as text: none of the page's code is run. Clutter, ids, counts, credits and the site's own copyright are left out. A page it does not understand gives a plain message. | 0 read; 1 not a page it understands; 2 bad option or input |
 | `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, writer, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
 | `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
 | `check.mjs --original <file> [--set-aside 1,2]` | Confirms the lyric lines in the parsed song match the original, and that every chord is still there. Ignores all spacing; compares words and punctuation exactly. Reports `changed`, `missing` and `extra` lines, `chords-missing`, `not-a-chord` (something other than a chord name sitting in a chord position, such as a header or a word) and `sections-missing` (fewer sections in the song than `[Header]` lines in the original). Lines named in `--set-aside` are not reported as missing and are listed in the output. | 0 match; 1 mismatch; 2 bad option or input |
@@ -31,7 +30,7 @@ node scripts/parse.mjs song.cho | node scripts/add-metadata.mjs --meta facts.jso
 node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 ```
 
-A web page's lyrics have no chords, so `load` reads a page with `lyrics-only`: `[Verse 1: Name]` becomes the section "Verse 1" followed by a `comment` line holding the performer, and a performer's name such as "Ann B" can never be read as a chord.
+Text with no chords, where a line that is only `[Something]` is a section header (`--format lyrics-only`), is read so that `[Verse 1: Name]` becomes the section "Verse 1" followed by a `comment` line holding the performer, and a name such as "Ann B" can never be read as a chord.
 
 Parse also makes these repairs, because the library gets them wrong:
 - Section labels written without brackets (`V1`, `VERSE 1`, `Chorus`, `Chorus x2`) are read as section headers; the chord readers would take `V1` for chords. Header lines (`[Verse 1]`) become sections, and `[Verse 1: Name]` becomes the section "Verse 1" plus a `comment` with the performer.
@@ -42,7 +41,40 @@ Parse also makes these repairs, because the library gets them wrong:
 
 Known limits: a chord line that has a word in it (`Intro | Gm79 | C7`) is read as a lyric line, and `check` says so; a bracket that is never closed is a parse error that names the line (fix it in the file).
 
-Not yet built: pages from sites other than Genius, finding a song by its title and artist, labelling sections beyond the headers the writer wrote, annotations read from the text (such as backing vocals), Nashville numbers (a ChordPro file with number chords is read, but `check` does not accept numbers as chords, so it fails). The scripts are self-contained and need only Node.js 18 or later.
+Not yet built: labelling sections beyond the headers the writer wrote, annotations read from the text (such as backing vocals), Nashville numbers (a ChordPro file with number chords is read, but `check` does not accept numbers as chords, so it fails). The scripts are self-contained and need only Node.js 18 or later.
+
+## What it returns
+
+`load.mjs` prints one JSON object. The words below are invented.
+
+```json
+{
+  "status": "ok",
+  "missing": [],
+  "questions": [],
+  "problems": [],
+  "notes": ["format: chords-over-words"],
+  "setAside": [],
+  "song": {
+    "type": "chordSheet",
+    "lines": [
+      { "type": "line", "items": [{ "type": "tag", "name": "title", "value": "Invented Song", "attributes": {} }] },
+      { "type": "line", "items": [{ "type": "tag", "name": "start_of_verse", "value": "Verse 1", "attributes": {} }] },
+      { "type": "line", "items": [
+        { "type": "chordLyricsPair", "chords": "Am", "chord": null, "lyrics": "Some invented ", "annotation": "" },
+        { "type": "chordLyricsPair", "chords": "C", "chord": null, "lyrics": "words here", "annotation": "" } ] },
+      { "type": "line", "items": [{ "type": "tag", "name": "end_of_verse", "value": "", "attributes": {} }] }
+    ]
+  }
+}
+```
+
+- `status` is `ok`, `needs-info` (loaded, but the title, the credits or the date is missing: `missing` names them and `questions` has a plain question for each) or `failed` (nothing is returned as a song; `problems` says why, with line numbers).
+- `song` is ChordSheetJS's JSON. It is returned only after the check has confirmed that every lyric word and every chord of the original is still there.
+- Song facts are tag lines near the top: `title`, `artist`, `writer`, `lyricist`, `composer`, `album`, `year`, `date`, `version`, `key`, `time`, `tempo`, `capo`.
+- Sections are `start_of_verse`, `start_of_chorus`, `start_of_bridge` or `start_of_part` (intro, outro, solo, pre-chorus and the rest), with the writer's own label as the value, closed by the matching `end_of_...`. A performer named in a header is a `comment` tag straight after the start.
+- A lyric line is a list of `chordLyricsPair` items. Join their `lyrics` to get the line; `chords` is the chord that starts at that point, or an empty string. A line of chords alone has empty `lyrics`; bar marks (`|`) are items too. A blank line has no items.
+- `notes` lists what was repaired; `setAside` lists lines removed because they were not lyrics.
 
 ## What it is for
 
@@ -52,7 +84,7 @@ Turn a lyric or chord sheet in almost any common layout into one predictable JSO
 
 - Judge, rate or rewrite lyrics, or suggest chords.
 - Analyse rhyme, rhythm or syllables.
-- Crawl sites or download in bulk. It loads one text, file or web address at a time. The scripts never search; when the user names a song, Claude finds its page (see "Finding a song by name"). The user is responsible for having the right to use that content.
+- Fetch anything from the web. It works on the text and files it is given, and makes no network requests.
 - Read PDFs or images.
 - Load a chord chart that has no lyrics (bars and section labels only). It says so plainly and returns nothing.
 
@@ -108,19 +140,7 @@ Built (`add-metadata.mjs`): title, artist, credits, key, tempo and the other fac
 
 ### 9. Load
 
-Built for pasted text, files, saved Genius pages and Genius web addresses (`load.mjs`); other sites are planned. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. (own plus model)
-
-## Finding a song by name
-
-When the user names a song instead of giving a file or an address ("I want to study September by Earth, Wind & Fire"):
-
-1. Use your own web search, once, with the title, the artist and "genius lyrics". The scripts do not search.
-2. Choose the one result that is a Genius lyrics page (an address ending `-lyrics` on genius.com) whose title and artist match what was asked. Never guess an address. If several versions match (live, cover, remix), or none does, say what you found and ask which.
-3. Tell the user which page you are about to load (title and artist), then run `load.mjs` with that address, adding `--save default --open` when the song is under copyright (see Rules).
-4. Compare the title and artist in the loaded facts with the request. If they differ, say so and stop.
-5. If there is no Genius page, say so plainly and ask for the lyrics as text or a file. Do not load a page from another site: only Genius pages are understood.
-
-The user is responsible for having the right to use what they load.
+Built (`load.mjs`) for pasted text, files and Word files. One entry point that runs the steps in a fixed order: read, parse, set aside non-lyric lines, add facts, check, then report any missing facts. If title, credits or date of publication are missing, the user is asked and the answers go in with step 8. (own plus model)
 
 ## Title, credits and other facts
 
@@ -163,21 +183,17 @@ Examples:
 
 > This looks like a chord chart with no lyrics, so Lyrics & Chords can't load it. If it has lyrics somewhere that I've missed, tell me where they start.
 
-For a web page the writer cannot edit the page itself, so the choices are: save the page and give me the file, or paste the text.
-
 Not every problem raises an error. A header with a missing bracket (`[Verse 1`) loads as an ordinary lyric line. That comes up as a question when sections are labelled, not as an error.
 
 ## Rules
 
-- For a song under copyright (if you are not sure it is out of copyright, treat it as under copyright), do not print its lyrics in the conversation. Load it with `--save default --open` (the user's Documents folder; a folder name can be given instead): the processed lyrics, with the chords above the words if there are any, are saved as `<title> - <artist>.txt` (an existing file is never replaced) and opened in the user's default app. `default` is Documents on macOS and Windows (Desktop, then the home folder, if there is no Documents). If your environment provides its own folder for files the user can download or open, use that instead. Do not assume the user has a particular setup. Tell the user the file name and where it is, and if the file cannot be opened or saved, say so and say what you did instead. Then report the facts, the sections and whatever was asked for (counts, rhymes, repetition), referring to lines by section and number.
-- Everything runs locally, except fetching the one page at an address the user gives.
+- Everything runs locally. The skill makes no network requests.
 - Never change a lyric word, line break or spelling to tidy it.
 - When unsure whether a line is lyric, label or annotation, ask.
-- No copyrighted lyrics in this repo; test files are scrubbed.
 
 ## Not decided
 
-v1 input list (Word, Nashville, sites other than Genius); bundling method for the scripts.
+Nashville numbers; charts with no lyrics; chord lines that contain a word.
 
 ## Licence
 

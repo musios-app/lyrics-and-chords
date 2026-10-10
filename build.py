@@ -166,7 +166,7 @@ def smoke_test(archive):
         if broken.returncode != 1 or json.loads(broken.stdout)["status"] != "failed":
             stop("packaged load did not fail cleanly on a broken file.")
 
-        for script in ("parse", "add-metadata", "set-aside", "check", "format", "read-page", "load"):
+        for script in ("parse", "add-metadata", "set-aside", "check", "format", "load"):
             help_run = subprocess.run(["node", f"scripts/{script}.mjs", "--help"], cwd=skill, capture_output=True, text=True,
                                       stdin=subprocess.DEVNULL, timeout=30)
             if help_run.returncode != 0:

@@ -2,7 +2,7 @@
 
 Slug: `lyrics-and-chords`. Licence: GPL-2.0-only (see `LICENSE`).
 
-A skill that reads song lyric and chord sheets in many layouts and returns them as normalised JSON, or says plainly what it could not resolve. It runs locally; the only network use is fetching a page at an address the user gives, and the user is responsible for having the right to use it. It is built on ChordSheetJS.
+A skill that loads song lyric and chord files (plain lyrics, chords above words, inline chords, ChordPro, Word files, pasted text), repairs what the readers get wrong, checks that no word or chord was lost, and returns a JSON object: the song with its facts and sections, plus anything it could not resolve. It runs entirely locally and makes no network requests. It is built on ChordSheetJS.
 
 Status: version 0.1, provisional. `SKILL.md` defines the capabilities; the scripts for loading, checking and writing out songs are built. Design notes: [docs/design-notes.md](docs/design-notes.md).
 
