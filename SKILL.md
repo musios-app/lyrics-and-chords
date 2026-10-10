@@ -39,7 +39,7 @@ Parse also makes these repairs, because the library gets them wrong:
 - A line of two or more bracketed chords (`[D] [Am] [G/D]`) is read as a chord line.
 - A section runs from its header to the next header, across blank lines; padding spaces on chords are trimmed.
 
-Known limits: a chord line that has a word in it (`Intro | Gm79 | C7`) is read as a lyric line, and `check` says so; a bracket that is never closed is a parse error that names the line (fix it in the file).
+Known limits: a chord line that has a word in it (`Intro | Gm79 | C7`) is read as a lyric line, and `check` says so; a bracket that is never closed is a parse error that names the file and the line, and says how sure it is (fix it in the file).
 
 Not yet built: labelling sections beyond the headers the writer wrote, annotations read from the text (such as backing vocals), Nashville numbers (a ChordPro file with number chords is read, but `check` does not accept numbers as chords, so it fails). The scripts are self-contained and need only Node.js 18 or later.
 

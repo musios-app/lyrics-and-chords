@@ -119,7 +119,7 @@ def example_page(example, shown, cleaned, formatted, previous, following):
             note = " It was loaded with the page text set aside and the title and credits given as facts, which is what Claude does for you."
         else:
             note = " It was loaded with the title line set aside and the title given as a fact, which is what Claude does for you."
-    links = ["[All examples](../#what-it-reads)"]
+    links = ["[All examples](../#lyrics--chords-skill)"]
     if previous:
         links.insert(0, f"[Previous: {previous[1]}](example-{previous[0]}.html)")
     if following:

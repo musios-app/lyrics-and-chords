@@ -422,3 +422,30 @@ test("the examples with chords have the same 16 chords", () => {
   assert.equal(a.length, 16);
   assert.deepEqual(a, b);
 });
+
+// ---- A parse failure explained for a writer ---------------------------------------------------------------
+
+test("an unclosed [ is named on its own line, with the file name and how sure we are", () => {
+  const { code, result } = load(file("Odd bar.pro", "{title: Invented}\n\nInterlude\n[Am | G | C |\n\nSome invented words\n"));
+  assert.equal(code, 1);
+  assert.equal(result.status, "failed");
+  const message = result.problems[0].message;
+  assert.match(message, /^In Odd bar\.pro: Line 4 has a "\[" that is never closed with "\]"\. This is very likely the problem\./);
+  assert.match(message, /line 4: \[Am \| G \| C \|/, "the line is shown");
+  assert.doesNotMatch(message, /^note:/m, "progress notes are left out");
+});
+
+test("an unclosed { in pasted text gives a message with no file name", () => {
+  const ran = run("load.mjs", ["-"], "Some words\n\n{title: x\nmore invented words\n");
+  const message = JSON.parse(ran.stdout).problems[0].message;
+  assert.match(message, /^Line 3 has a "\{" that is never closed with "\}"/);
+});
+
+test("a file that cannot be read gives a plain message that says what to do", () => {
+  const message = (path) => load(path).result.problems[0].message;
+  assert.match(message(join(dir, "no-such-file.txt")), /there is no file with that name\. Check the name and the folder\./);
+  assert.match(message(file("Empty song.txt", "  \n\n")), /^"Empty song\.txt" is empty, or has only blank lines/);
+  assert.match(message(file("Song.pdf", "%PDF-1.4\nbinary")), /^"Song\.pdf" is a PDF\. .*paste the text\.$/);
+  assert.match(message(file("Song.rtf", "{\\rtf1\\ansi Invented words}")), /is a Rich Text \(\.rtf\) file/);
+  assert.match(message(dir), /that is a folder, not a file\./);
+});

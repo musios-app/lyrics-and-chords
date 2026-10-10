@@ -323,33 +323,42 @@ try {
   process.exit(1);
 }
 
-// A readable account of a parse failure: where it is, what was found and expected,
-// the lines around it, and a hint when the mistake is probably on the line before.
+// A readable account of a parse failure, for a writer rather than a programmer: one plain sentence
+// that says where to look and how sure we are, the lines around it, and the parser's own words last.
+// How sure: "very likely" when a bracket opened on the line the reader stopped at (or the one before)
+// is never closed; "possibly" when it is a few lines back; otherwise only "look here".
 function explain(err) {
   const where = err.location && err.location.start;
-  if (!where) return `Could not parse as ${format}: ${err.message}`;
+  if (!where) return `Could not read this as ${format}: ${err.message}`;
   const lines = text.split("\n");
   const found = err.found === null || err.found === undefined ? "the end of the text" : JSON.stringify(err.found);
-  const wanted = [...new Set((err.expected || []).map((x) => (x.text !== undefined ? JSON.stringify(x.text) : x.description)))]
+  const wanted = [...new Set((err.expected || []).map((x) => (x.text !== undefined ? JSON.stringify(x.text) : x.description)).filter(Boolean))]
     .slice(0, 6)
     .join(" or ");
-  const out = [
-    `Could not parse as ${format}: the parser stopped at line ${where.line}, column ${where.column}.`,
-    `It found ${found}${wanted ? ` and expected ${wanted}` : ""}.`,
-  ];
-  const first = Math.max(1, where.line - 1);
-  const last = Math.min(lines.length, where.line);
-  for (let n = first; n <= last; n++) out.push(`  line ${n}: ${lines[n - 1]}`);
-  if (where.line <= lines.length) out.push(`  ${" ".repeat(`line ${where.line}: `.length + where.column - 1)}^`);
-  const before = lines[where.line - 2] || "";
-  for (const [open, close] of [["{", "}"], ["[", "]"]]) {
-    if (before.split(open).length > before.split(close).length) {
-      out.push(`Hint: line ${where.line - 1} opens "${open}" but does not close it with "${close}". The mistake is probably there.`);
+
+  // The nearest line at or before the stop with a bracket that is opened and not closed.
+  let unclosed = null;
+  for (let n = where.line; n >= Math.max(1, where.line - 3) && !unclosed; n--) {
+    const line = lines[n - 1] || "";
+    for (const [open, close] of [["[", "]"], ["{", "}"]]) {
+      if (line.split(open).length > line.split(close).length) {
+        unclosed = { n, open, close, certainty: n >= where.line - 1 ? "very likely" : "possibly" };
+        break;
+      }
     }
   }
+  const out = [
+    unclosed
+      ? `Line ${unclosed.n} has a "${unclosed.open}" that is never closed with "${unclosed.close}". This is ${unclosed.certainty} the problem. Close it, or take it out if it was meant to be something else.`
+      : `The reader could not make sense of the text at line ${where.line}. Look at that line, and the one before it.`,
+  ];
+  const first = Math.max(1, Math.min(where.line, unclosed ? unclosed.n : where.line) - 1);
+  const last = Math.min(lines.length, where.line);
+  for (let n = first; n <= last; n++) out.push(`  line ${n}: ${lines[n - 1]}`);
   if (!forced) {
     const others = Object.keys(parsers).filter((f) => f !== format).join(" or ");
-    out.push(`If ${format} is the wrong guess, run again with --format ${others}.`);
+    out.push(`The file was read as ${format}, which was a guess. If that is wrong, run again with --format ${others}.`);
   }
+  out.push(`Detail: the reader stopped at line ${where.line}, column ${where.column}. It found ${found}${wanted ? ` and expected ${wanted}` : ""}.`);
   return out.join("\n");
 }

@@ -206,3 +206,22 @@ The skill works on files, not on web pages. Fair-use concerns were blocking too 
 - **Kept:** every file reader and repair, `check`, `set-aside`, facts, Word files, pasted text, `--save` and `--open` (a readable copy of the loaded song), and the `lyrics-only` reader (text with `[Header]` lines and no chords, used when asked for with `--format lyrics-only`).
 - **The three out-of-copyright Genius samples** stay in `tests/samples/genius/` as plain test text.
 - Items above that mention fetching, Genius or finding a song by name are superseded by this section.
+
+## Design principle: errors are for writers (10 Oct 2026, Andrew)
+
+Lyric files are written by people who are thinking about the song, not about file formats. They deviate from the "correct" format in more ways than we can list. So:
+
+1. **Do not write a repair for one writer's typo.** A parser that fixes the specific mistakes found in the test files may not work on the next person's files. It also changes their text on a guess. Repairs are for safe, general cases (padding spaces, a section that is never closed), and each is reported in `notes`.
+2. **Give a good error for the rest.** An error should tell the writer three things, in plain words, with no jargon:
+   - **Which file**, if that is not obvious. (`load` names it; pasted text has none.)
+   - **Which line**, or the general area if the line is not certain.
+   - **What we think the problem is, and how sure we are**: precise ("line 29 has a `[` that is never closed", *very likely*), a guess ("possibly"), or only "look at this line and the one before it".
+3. **Say it before the jargon.** The reader's own detail (line, column, what it found, what it expected) goes last, for those who want it.
+4. **Never be sure when we are not.** A vague message that is true is better than a precise one that sends the writer to the wrong place.
+5. **Test the message, not the file.** Tests use invented text that shows the kind of mistake (an unclosed `[`), so the message is checked to work in general.
+
+First use: the parse error (`explain()` in `scripts/parse.mjs`; the file name is added in `scripts/load.mjs`). The same principle applies to the other failures: `check` problems, set-aside refusals, unreadable Word files, and any later error. Where an existing message does not yet follow it, it is a bug in the message.
+
+Found by: five of Andrew's Word files had a chord line starting with `[` instead of `|`. The old message pointed at the line above; the new one names the right line. No special repair was added.
+
+First review against the principle (10 Oct 2026, obvious cases only): `load` answered a missing file with a Node stack trace, and loaded an empty file, a PDF or an RTF file as if it were a song. It now says in plain words what is wrong (no such file, a folder, empty, a PDF, an old Word .doc, an RTF, not text) and what to do. Usage errors for Claude (a bad option, bad facts) were left as they are: they are not shown to a writer.

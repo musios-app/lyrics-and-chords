@@ -82,7 +82,7 @@ parse(input: { text: string } | { file: string }, options?: { format?: Format })
 - Keeps every lyric word, space and line break exactly.
 - Does not find sections, titles or metadata in plain lyrics; that is `labelSections` and `addMetadata`.
 - Formats: ChordPro, chords over words, Ultimate Guitar style, and `lyrics-only` (text with no chords: `[Label: performers]` becomes the section "Label" plus a `comment` holding the performers; used for web pages).
-- Errors: unknown format → exit 2. Text the parser cannot read → exit 1 with a message that gives the line and column where it stopped, what it found and expected, the offending line and the one before it with a marker, a hint when the line before has an unclosed `{` or `[`, and, when the format was guessed, the other formats to try with `--format`.
+- Errors: unknown format → exit 2. Text the parser cannot read → exit 1 with a message written for a writer, not a programmer (decided 10 Oct 2026; it must work for any file, not just the ones tested). It says: (1) where to look and how sure we are: `Line N has a "[" that is never closed` marked *very likely* (that line or the line before the stop) or *possibly* (up to three lines back), or, when no cause is found, only `could not make sense of the text at line N, look at that line and the one before it`; (2) the lines around it; (3) when the format was guessed, the other formats to try with `--format`; (4) last, the reader's own detail (line, column, what it found and expected). `load` puts the file's name first (`In Song.docx: ...`; none for pasted text). No repair is made for a particular typo.
 
 ## 3. labelSections (planned, Claude plus script)
 

@@ -65,7 +65,7 @@ Example JSON object:
 
 | Platform | Download |
 | --- | --- |
-| Claude (claude.ai, desktop app, Claude Code) | [lyrics-and-chords.skill](downloads/lyrics-and-chords.skill) (v{{version}}) |
+| Claude | [lyrics-and-chords.skill](downloads/lyrics-and-chords.skill) (v{{version}}) |
 | Source code | [lyrics-and-chords-{{version}}-source.zip](downloads/lyrics-and-chords-{{version}}-source.zip) |
 
 ## Availability

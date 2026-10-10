@@ -9,7 +9,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, readSync, closeSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLineList } from "./lyric-lines.mjs";
 
@@ -91,7 +91,8 @@ if (setAsideList && !parseLineList(setAsideList)) {
 
 // Pasted text, and the text of a Word file, goes to a temporary file, so every step reads
 // the same original. The temporary folder is removed at the end.
-let original = positional[0];
+const given = positional[0]; // as the writer named it; `original` may become a temporary copy of a Word file
+let original = given;
 let tempDir = null;
 if (original === "-") {
   tempDir = mkdtempSync(join(tmpdir(), "lyrics-and-chords-"));
@@ -136,6 +137,27 @@ const fail = (kind, message) => {
 };
 
 try {
+  // A. Is it something we can read at all? Say so plainly if not (the file kinds are told apart by their first bytes).
+  let bytes;
+  try {
+    bytes = readFileSync(original);
+  } catch (err) {
+    const why = err.code === "ENOENT" ? "there is no file with that name. Check the name and the folder."
+      : err.code === "EISDIR" ? "that is a folder, not a file."
+      : `it can't be read (${err.code || err.message}).`;
+    fail("file", `I can't open ${given === "-" ? "the pasted text" : `"${given}"`}: ${why}`);
+  }
+  const named = given === "-" ? "This" : `"${basename(given)}"`;
+  const head = bytes.subarray(0, 8);
+  const starts = (text) => head.toString("latin1").startsWith(text);
+  const zipped = starts("PK\x03\x04");
+  const tryInstead = "The skill reads plain text, ChordPro and Word (.docx) files. Save the song in one of those, or paste the text.";
+  if (starts("%PDF")) fail("file", `${named} is a PDF. ${tryInstead}`);
+  if (head.toString("hex") === "d0cf11e0a1b11ae1") fail("file", `${named} is an old Word file (.doc). Open it in Word and save it as .docx, or paste the text.`);
+  if (starts("{\\rtf")) fail("file", `${named} is a Rich Text (.rtf) file. ${tryInstead}`);
+  if (!zipped && bytes.subarray(0, 1000).includes(0)) fail("file", `${named} does not look like a text file. ${tryInstead}`);
+  if (!zipped && bytes.toString("utf8").trim() === "") fail("file", `${named} is empty, or has only blank lines, so there is nothing to load.`);
+
   // 0. A Word file: take its text (one line for each paragraph) and carry on with that.
   if (!tempDir && isWordFile(original)) {
     const word = run("read-docx.mjs", [original]);
@@ -152,7 +174,11 @@ try {
   const readerFormat = value("--format");
   const parsed = run("parse.mjs", [original, ...(readerFormat ? ["--format", readerFormat] : [])]);
   result.notes.push(...lines(parsed.stderr).filter((l) => l.startsWith("note:") || l.startsWith("format:")));
-  if (parsed.status !== 0) fail("parse", parsed.stderr.trim());
+  if (parsed.status !== 0) {
+    // Name the file (a pasted text has none), and leave out the progress notes.
+    const body = lines(parsed.stderr).filter((l) => !l.startsWith("note:") && !l.startsWith("format:")).join("\n").trim();
+    fail("parse", given === "-" ? body : `In ${basename(given)}: ${body}`);
+  }
   let song = parsed.stdout;
 
   // 2. Set aside lines that are not lyrics.
