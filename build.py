@@ -12,6 +12,7 @@ What it does, in order:
   6. Runs the packaged scripts from a folder outside this repo, to prove the package stands alone.
 
 Needs: Python 3, Node.js 18 or later, and `npm install` run once in this folder (for the bundler).
+On a Mac, dist/ is marked so that Dropbox does not sync it.
 Python standard library only. Never edit dist/ by hand.
 """
 import json
@@ -173,15 +174,25 @@ def smoke_test(archive):
     return True
 
 
+def keep_dist_out_of_dropbox():
+    """On a Mac, ask Dropbox (the File Provider kind) not to sync dist/, which is generated.
+    Harmless where Dropbox is not used. Only this repository's dist/ is touched."""
+    if sys.platform == "darwin":
+        subprocess.run(["xattr", "-w", "com.apple.fileprovider.ignore#P", "1", str(DIST)], capture_output=True)
+
+
 def main():
     package = json.loads((ROOT / "package.json").read_text(encoding="utf8"))
     version = package["version"]
     check_skill(version)
 
     folder = DIST / "lyrics-and-chords"
-    if DIST.exists():
-        shutil.rmtree(DIST)
-    DIST.mkdir()
+    # Empty dist/ but keep the folder itself: a Dropbox "ignore" setting lives on the folder, and
+    # deleting and recreating it on every build also makes Dropbox keep "conflicted copies".
+    DIST.mkdir(exist_ok=True)
+    for child in DIST.iterdir():
+        shutil.rmtree(child) if child.is_dir() else child.unlink()
+    keep_dist_out_of_dropbox()
 
     bundle_library(folder / "scripts" / "lib" / "chordsheetjs.mjs")
     rewritten = copy_scripts(folder / "scripts")
