@@ -174,3 +174,18 @@ A Genius page whose headers carry a performer (`[Verse 1: Name]`) failed to load
 - `check` also over-counted: it treated the "B" inside `[Verse 1: Name B]` as a chord.
 - Fixes: web pages are read with a `lyrics-only` reader that never produces chords (`[Label: performers]` gives the section "Label" plus a `comment` with the performers); `check` counts a bracket as chords only if every word in it is a chord, flags `not-a-chord` and `sections-missing`; in Ultimate Guitar style a lone `[B]` or `[A]` is a header.
 - `tests/lyrics-and-chords.test.mjs` covers all of this with invented lyrics. A real page is never a fixture.
+
+## Word files, labels without brackets, and priorities (10 Oct 2026)
+
+- **Word files:** read for their text only (Andrew: keep it simple). One line per paragraph, a tab as a space; comments, deleted text, formatting and styles are ignored. `read-docx.mjs` unpacks the zip itself (no dependency). Tables, heading styles and font-dependent chord alignment are not used.
+- **Found by running the real Word files:** section labels written as `V1`, `V2` or `CHORUS` were read by the chord readers as chords (`V1` became a `V` chord and a `1`) and lost; the Ultimate Guitar reader drops chord lines made of bar marks (`| Ebmin7 | Db6/F |`). Now such labels are put in brackets (wording kept) and turned into sections while the chords-over-words reader keeps its chord lines. The library also gives up on a whole chord line if one chord is unknown (`G(maj7)`); parse reads such a line as chords again.
+- **Nashville numbers (tested with a chart made from a public-domain song):** a ChordPro file with number chords is read correctly, but `check` rejects the numbers as "not a chord", and the chords-over-words version loses its chord lines. Real Nashville charts are usually bars with no lyrics, which are out of scope. Not built.
+- **Andrew's priorities:** 1. fetching a page from a web address (built for Genius). 2. finding a song's lyrics from a title and artist (for example, to study a named song). Saved pages are not important.
+
+### Run on 104 of Andrew's own Word files (10 Oct 2026)
+
+The first real-world corpus. Result after the fixes above: 90 of 104 load; the other 14 fail loudly (never silently).
+- 5 files (Song A versions, one more) have a `[` that is never closed on a bar line. A real error in the file; the message names the line.
+- 9 files have chord lines with a word in them (`Intro | Gm79 | C7`). Not handled: read as lyric lines and flagged by `check`.
+- What the corpus taught: the library's chord reading cannot be trusted line by line (it rewrites `maj7`/`♭`, drops lines on one unknown chord, and its Ultimate Guitar reader drops bar-line chord lines and takes CHORUS for a chord). So chord lines it does not return exactly are read by this skill, and the Ultimate Guitar style is read with the chords-over-words reader plus sections built here.
+- A file in a Dropbox cloud folder can take a minute to open the first time (it is downloaded then). Not a skill fault; `load` limits each step to two minutes.

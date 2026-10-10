@@ -1,5 +1,5 @@
 // Lyrics & Chords: load a song in one step.
-// Usage: node scripts/load.mjs <file | web address | ->     ("-" reads pasted text on standard input)
+// Usage: node scripts/load.mjs <file | Word file | web address | ->     ("-" reads pasted text on standard input)
 //        node scripts/load.mjs <file> --facts facts.json --set-aside 1,2 --as chordpro --output song.cho
 // Runs the separate scripts in order: parse, set aside, add facts, check, write out.
 // The separate scripts still work on their own; this one only chains them.
@@ -16,11 +16,13 @@ import { parseLineList } from "./lyric-lines.mjs";
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`Usage: node scripts/load.mjs <file | web address | -> [options]
+  console.log(`Usage: node scripts/load.mjs <file | Word file | web address | -> [options]
 
 Loads a lyric or chord sheet: parse, set aside non-lyric lines, add song facts, check that the
 lyrics and chords are intact, and optionally write the song out. "-" reads pasted text from
-standard input. A web address (https://...) is fetched once; so is a saved web page (.html) read.
+standard input. A Word file (.docx) is read for its text only: one line for each paragraph; comments,
+deleted text and formatting are ignored. A web address (https://...) is fetched once; a saved web page
+(.html) is read the same way.
 Only Genius lyrics pages are understood today; the lyrics and song facts come from the page's own
 data. Using the content is the user's responsibility. Nothing is stored beyond the run.
 
@@ -94,9 +96,20 @@ if (original === "-") {
   writeFileSync(original, readFileSync(0, "utf8"));
 }
 let factsPath = value("--facts");
+const isWordFile = (path) => {
+  try {
+    const fd = openSync(path, "r");
+    const head = Buffer.alloc(4);
+    readSync(fd, head, 0, 4, 0);
+    closeSync(fd);
+    return head.toString("latin1") === "PK\x03\x04"; // a zip file; read-docx.mjs decides if it is Word
+  } catch {
+    return false;
+  }
+};
 
 const run = (script, scriptArgs, input) =>
-  spawnSync(process.execPath, [join(here, script), ...scriptArgs], { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  spawnSync(process.execPath, [join(here, script), ...scriptArgs], { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 120000 });
 const lines = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
 class Stop extends Error {}
@@ -163,10 +176,22 @@ try {
     result.notes.push(...read.notes);
   }
 
+  // 0b. A Word file: take its text (one line for each paragraph) and carry on with that.
+  if (!isAddress && !tempDir && isWordFile(original)) {
+    const word = run("read-docx.mjs", [original]);
+    if (word.status !== 0) fail("word", word.stderr.trim());
+    const read = JSON.parse(word.stdout);
+    tempDir = mkdtempSync(join(tmpdir(), "lyrics-and-chords-"));
+    original = join(tempDir, "word-text.txt");
+    writeFileSync(original, read.text);
+    result.source = { type: "word" };
+    result.notes.push(...read.notes);
+  }
+
   // 1. Read the sheet.
   // A web page's lyrics have no chords, so they never go to a chord reader (a performer's name such as
   // "Ann B" would be read as a chord). Pages use the lyrics-only reader unless --format says otherwise.
-  const readerFormat = value("--format") || (result.source ? "lyrics-only" : null);
+  const readerFormat = value("--format") || (result.source && result.source.site ? "lyrics-only" : null);
   const parsed = run("parse.mjs", [original, ...(readerFormat ? ["--format", readerFormat] : [])]);
   result.notes.push(...lines(parsed.stderr).filter((l) => l.startsWith("note:") || l.startsWith("format:")));
   if (parsed.status !== 0) fail("parse", parsed.stderr.trim());

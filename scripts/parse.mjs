@@ -9,7 +9,7 @@ import {
   UltimateGuitarParser,
   ChordSheetSerializer,
 } from "chordsheetjs";
-import { CHORD } from "./chord-words.mjs";
+import { CHORD, MARK, chordTokens } from "./chord-words.mjs";
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
@@ -24,7 +24,8 @@ lyrics-only is for text that has no chords at all (a page's lyrics): a line that
 section header, every other line is a lyric, and no word is ever read as a chord. [Verse 1: Name] becomes
 the section "Verse 1" plus a comment line holding the performer. Pages loaded by load.mjs use it.
 
-Repairs made on the way: a line of two or more bracketed chords in an Ultimate Guitar style sheet is
+Repairs made on the way: a chord line the library cannot give back exactly as written (G(maj7), Em7(♭5)/D) is read by this skill; section labels written without brackets (V1, VERSE 1, Chorus) are read as headers;
+a line of two or more bracketed chords in an Ultimate Guitar style sheet is
 read as a chord line; a section runs from its header to the next header, across blank lines; padding
 spaces on chords are trimmed.
 
@@ -38,13 +39,17 @@ for (let i = 0; i < args.length; i++) {
   else files.push(args[i]);
 }
 
-const text = (files.length ? readFileSync(files[0], "utf8") : readFileSync(0, "utf8"))
+let text = (files.length ? readFileSync(files[0], "utf8") : readFileSync(0, "utf8"))
   .replace(/^﻿/, "")
   .replace(/\r\n?/g, "\n");
 
 function detect(t) {
   if (/^\s*\{\s*[a-z_]+\s*(:|\})/im.test(t)) return "chordpro";
   if (/\[[A-G][^\]\s]*\]/.test(t) && !/^\s*\[[^\]]+\]\s*$/m.test(t)) return "chordpro";
+  // Chords inside lines of words ("[Am]word [C]word") with [Header] lines of their own: ChordPro style,
+  // with the headers turned into sections before reading.
+  const inline = t.split("\n").some((l) => !/^\s*\[[^\]]+\]\s*$/.test(l) && l.replace(/\[[^\]]*\]/g, "").trim() && /\[[A-G][^\]\s]*\]/.test(l));
+  if (inline) return "chordpro";
   if (/^\s*\[[^\]]+\]\s*$/m.test(t)) return "ultimate-guitar";
   return "chords-over-words";
 }
@@ -55,10 +60,45 @@ const parsers = {
   "ultimate-guitar": UltimateGuitarParser,
 };
 
-const format = forced || detect(text);
+let format = forced || detect(text);
 if (!parsers[format] && format !== "lyrics-only") {
   console.error(`Unknown format "${format}". Use: ${[...Object.keys(parsers), "lyrics-only"].join(", ")}`);
   process.exit(2);
+}
+
+// Section labels written without brackets (V1, VERSE 1, Chorus) are read by the chord readers as chords
+// or as lyrics: "V1" becomes a "V" chord and a "1". Put each such label, and only a label standing on a
+// line of its own, in brackets, keeping the writer's wording, so it is read as a section header.
+// Not done for ChordPro, where a bracket means a chord, nor for a line under a chord line (that is a lyric).
+const BARE_HEADER = /^\s*(?:(?:intro|outro|verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|solo|interlude|instrumental|hook|refrain|tag|coda|break(?:down)?|middle\s*8?)(?:\s*\d+)?|v\d+|ch\d+|pre\d*|post\d*|br\d*)\s*:?\s*(?:\(?x\d+\)?)?\s*$/i;
+function wrapBareHeaders(t) {
+  let wrapped = 0;
+  let previous = "";
+  const lines = t.split("\n").map((line) => {
+    const above = previous.trim().split(/\s+/).filter(Boolean);
+    const underChords = above.length > 0 && above.every((w) => CHORD.test(w) || /^[|/x-]+$/.test(w));
+    previous = line;
+    if (!underChords && BARE_HEADER.test(line)) {
+      wrapped++;
+      return `[${line.trim().replace(/\s*:$/, "")}]`;
+    }
+    return line;
+  });
+  return { text: lines.join("\n"), wrapped };
+}
+// Text that looks like Ultimate Guitar style (bracketed headers over chords and lyrics) is read with the
+// chords-over-words reader, and its sections are built here from the header lines. The library's own
+// Ultimate Guitar reader drops chord lines made of bar marks and takes a word such as CHORUS for a chord.
+// Asking for ultimate-guitar with --format still uses the library's reader.
+const ownSections = format === "ultimate-guitar" && !forced;
+let bareLabels = 0;
+if (format === "chords-over-words" || ownSections) {
+  const { text: wrappedText, wrapped } = wrapBareHeaders(text);
+  if (wrapped) {
+    text = wrappedText;
+    bareLabels = wrapped;
+    console.error(`note: ${wrapped} section label(s) written without brackets were read as headers`);
+  }
 }
 
 // The Ultimate Guitar reader takes a line of bracketed chords such as "[D] [Am] [G/D]" for a
@@ -78,6 +118,7 @@ function readBracketChordLines(t) {
 }
 
 let toParse = text;
+let savedChordLines = [];
 if (format === "ultimate-guitar") {
   const { text: fixed, changed } = readBracketChordLines(text);
   toParse = fixed;
@@ -153,19 +194,70 @@ function tidyChords(lines) {
 // Text with no chords: a line that is only [Something] opens a section, every other line is a lyric,
 // and nothing is read as a chord. [Label: performers] gives the section "Label" and a comment holding
 // the performers. Lines are kept exactly (a trailing carriage return is already gone).
+// The library cannot be trusted with every chord line: one chord name it does not know (G(maj7)) and it keeps
+// the whole line as lyric text; a half-known one (Em7(♭5)/D) it splits into pieces and rewrites. So before the
+// library reads the text, each chord line it does not give back exactly as written is swapped for a placeholder
+// line; afterwards the real chords are put back, attached to the lyric line below by column.
+const PLACEHOLDER = /^@@CHORDLINE(\d+)@@$/;
+function protectChordLines(t) {
+  const saved = [];
+  const lines = t.split("\n").map((line) => {
+    const words = chordTokens(line).map((x) => x.text);
+    if (!words.length || !words.every((w) => CHORD.test(w) || MARK.test(w))) return line;
+    let exact = false;
+    try {
+      const alone = new ChordSheetSerializer().serialize(new ChordsOverWordsParser().parse(line));
+      const pairs = alone.lines.flatMap((l) => l.items.filter((x) => x.type === "chordLyricsPair"));
+      exact = pairs.map((x) => x.chords.trim()).filter(Boolean).join(" ") === words.join(" ") && !pairs.map((x) => x.lyrics).join("").trim();
+      // a bar mark touching a chord ("Emaj7|") is not given back exactly: treat as not exact
+      if (exact && /[^\s|]\||\|[^\s|]/.test(line)) exact = false;
+    } catch {
+      exact = false;
+    }
+    if (exact) return line;
+    saved.push(line);
+    return `@@CHORDLINE${saved.length - 1}@@`;
+  });
+  return { text: lines.join("\n"), saved };
+}
+function restoreChordLines(lines, saved) {
+  const plain = (line) => (line && line.items.length === 1 && line.items[0].type === "chordLyricsPair" && !line.items[0].chords ? line.items[0].lyrics : null);
+  const item = (chords, lyrics) => ({ type: "chordLyricsPair", chords, chord: null, lyrics, annotation: "" });
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const marked = (plain(lines[i]) || "").trim().match(PLACEHOLDER);
+    if (!marked) { out.push(lines[i]); continue; }
+    const raw = saved[Number(marked[1])];
+    const tokens = chordTokens(raw).map((x) => Object.assign([x.text], { index: x.index }));
+    const below = plain(lines[i + 1]);
+    if (below !== null && below.trim() && !PLACEHOLDER.test(below.trim())) {
+      const items = [];
+      if (tokens[0].index > 0) items.push(item("", below.slice(0, tokens[0].index)));
+      tokens.forEach((t, k) => items.push(item(t[0], below.slice(t.index, k + 1 < tokens.length ? tokens[k + 1].index : below.length))));
+      out.push({ type: "line", items });
+      i++;
+    } else {
+      out.push({ type: "line", items: tokens.map((t) => item(t[0], "")) });
+    }
+  }
+  return out;
+}
+
+const tagLine = (name, value) => ({ type: "line", items: [{ type: "tag", name, value, attributes: {} }] });
+function sectionStart(inner) {
+  const trimmed = inner.trim();
+  const colon = trimmed.indexOf(":");
+  const label = (colon > 0 ? trimmed.slice(0, colon) : trimmed).trim();
+  const performers = colon > 0 ? trimmed.slice(colon + 1).trim() : "";
+  const kind = /^verse/i.test(label) ? "verse" : /^chorus/i.test(label) ? "chorus" : /^bridge/i.test(label) ? "bridge" : "part";
+  return [tagLine(`start_of_${kind}`, label), ...(performers ? [tagLine("comment", performers)] : [])];
+}
 function readLyricsOnly(t) {
-  const tag = (name, value) => ({ type: "line", items: [{ type: "tag", name, value, attributes: {} }] });
   const lines = [];
   for (const raw of t.replace(/\n+$/, "").split("\n")) {
     const header = raw.match(/^\s*\[([^\]]+)\]\s*$/);
     if (header) {
-      const inner = header[1].trim();
-      const colon = inner.indexOf(":");
-      const label = (colon > 0 ? inner.slice(0, colon) : inner).trim();
-      const performers = colon > 0 ? inner.slice(colon + 1).trim() : "";
-      const kind = /^verse/i.test(label) ? "verse" : /^chorus/i.test(label) ? "chorus" : /^bridge/i.test(label) ? "bridge" : "part";
-      lines.push(tag(`start_of_${kind}`, label));
-      if (performers) lines.push(tag("comment", performers));
+      lines.push(...sectionStart(header[1]));
     } else if (!raw.trim()) {
       lines.push({ type: "line", items: [] });
     } else {
@@ -175,6 +267,12 @@ function readLyricsOnly(t) {
   return { type: "chordSheet", lines };
 }
 
+if (format === "chords-over-words" || format === "ultimate-guitar") {
+  const protectedText = protectChordLines(toParse);
+  toParse = protectedText.text;
+  savedChordLines = protectedText.saved;
+}
+
 try {
   let json;
   if (format === "lyrics-only") {
@@ -182,12 +280,38 @@ try {
     json.lines = restructureSections(json.lines, "", false).lines;
     console.error(`format: ${format}`);
   } else {
-    const song = new parsers[format]().parse(toParse);
+    if (format === "chordpro") {
+      // In ChordPro a bracket is a chord, so a line that is only [Verse 1] would become a chord. Turn such
+      // header lines (a bracket holding something that is not all chords) into section directives.
+      let headers = 0;
+      toParse = toParse.split("\n").flatMap((line) => {
+        const m = line.match(/^\s*\[([^\]]+)\]\s*$/);
+        if (!m || m[1].trim().split(/\s+/).every((w) => CHORD.test(w))) return [line];
+        headers++;
+        return sectionStart(m[1]).map((l) => `{${l.items[0].name}: ${l.items[0].value}}`);
+      }).join("\n");
+      if (headers) console.error(`note: ${headers} [Header] line(s) in ChordPro text were read as sections`);
+    }
+    const Reader = ownSections ? ChordsOverWordsParser : parsers[format];
+    const song = new Reader().parse(toParse);
     console.error(`format: ${format}`);
     json = new ChordSheetSerializer().serialize(song);
     const tidy = tidyChords(json.lines);
     if (tidy.trimmed || tidy.dropped) console.error(`note: padding removed from ${tidy.trimmed} chord(s); ${tidy.dropped} empty item(s) dropped`);
-    if (format === "ultimate-guitar" || format === "chordpro") {
+    if (savedChordLines.length) {
+      json.lines = restoreChordLines(json.lines, savedChordLines);
+      console.error(`note: ${savedChordLines.length} chord line(s) the library cannot read exactly were read by this skill`);
+    }
+    if (bareLabels || ownSections) {
+      // Header lines ([Verse 1], or labels put in brackets above) are lyric lines to this reader. Make them sections.
+      json.lines = json.lines.flatMap((line) => {
+        const only = line.items.length === 1 && line.items[0].type === "chordLyricsPair" && !line.items[0].chords ? line.items[0].lyrics : null;
+        const header = only === null ? null : only.match(/^\s*\[([^\]]+)\]\s*$/);
+        return header ? sectionStart(header[1]) : [line];
+      });
+      json.lines = restructureSections(json.lines, "", false).lines;
+    }
+    if ((format === "ultimate-guitar" && forced) || format === "chordpro") {
       const fixed = restructureSections(json.lines, text, format === "ultimate-guitar");
       json.lines = fixed.lines;
       if (fixed.promoted) console.error(`note: ${fixed.promoted} header(s) read as comments were made sections`);

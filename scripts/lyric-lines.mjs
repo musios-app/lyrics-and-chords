@@ -1,5 +1,6 @@
 // Lyrics & Chords: shared helpers for finding lyric lines in a parsed song and in its source.
 // Used by check.mjs and set-aside.mjs so both match lines by the same rules.
+import { CHORD, MARK } from "./chord-words.mjs";
 
 // Spacing does not count: runs of spaces, indentation, trailing spaces, non-breaking spaces.
 export const norm = (s) => s.replace(/\s+/g, " ").trim();
@@ -20,7 +21,11 @@ export function originalLines(original) {
   return original.replace(/\r\n?/g, "\n").split("\n").map((raw, i) => ({
     n: i + 1,
     raw,
-    text: norm(raw.replace(/\[[^\]\n]*\]/g, "")),
+    // Take out [chords] only; a bracketed note such as [spoken] is part of the line.
+    text: norm(raw.replace(/\[([^\]\n]*)\]/g, (all, inner) => {
+      const words = inner.trim().split(/\s+/).filter(Boolean);
+      return words.length && words.every((w) => CHORD.test(w) || MARK.test(w)) ? "" : all;
+    })),
   }));
 }
 

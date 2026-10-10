@@ -7,6 +7,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateRawSync } from "node:zlib";
 
 const scripts = fileURLToPath(new URL("../scripts/", import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), "lc-test-"));
@@ -101,15 +102,35 @@ test("bare chord letters as headers do not break a chord sheet", () => {
   assert.deepEqual(chordsOf(result.song), ["Am", "C", "G", "D"]);
 });
 
-test("check fails when a header is read as a chord", () => {
+test("check fails when a header has been turned into a chord", () => {
   const path = file("headers.txt", "[Verse 1: Ann B]\nMade up line\n\n[Chorus: Cal]\nPretend line\n");
-  const parsed = run("parse.mjs", [path, "--format", "chordpro"]);
-  assert.equal(parsed.status, 0);
-  const checked = run("check.mjs", ["--original", path], parsed.stdout);
+  const song = JSON.parse(run("parse.mjs", [path, "--format", "lyrics-only"]).stdout);
+  // damage the song the way a chord reader would: every header becomes a "chord" and the sections are gone
+  const damaged = { type: "chordSheet", lines: song.lines
+    .filter((l) => !(l.items.length === 1 && l.items[0].type === "tag"))
+    .map((l, i) => (i % 3 === 0 ? { type: "line", items: [{ type: "chordLyricsPair", chords: i === 0 ? "Verse 1: Ann B" : "Chorus: Cal", chord: null, lyrics: "", annotation: "" }] } : l)) };
+  const checked = run("check.mjs", ["--original", path], JSON.stringify(damaged));
   assert.equal(checked.status, 1);
   const kinds = JSON.parse(checked.stdout).problems.map((p) => p.kind);
   assert.ok(kinds.includes("not-a-chord"));
   assert.ok(kinds.includes("sections-missing"));
+});
+
+test("ChordPro text with [Header] lines reads the headers as sections and the inline chords as chords", () => {
+  const sheet = "[Verse 1: Ann B]\n[Am]Made up [C]line\nPretend [G]line\n\n[Chorus]\n[F]More invented words\n";
+  const { code, result } = load(file("hybrid.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(sectionsOf(result.song), ["Verse 1", "Chorus"]);
+  assert.deepEqual(chordsOf(result.song), ["Am", "C", "G", "F"]);
+});
+
+test("a bar mark touching a chord is a mark of its own", () => {
+  const sheet = "[Verse 1]\n| G#m7 | Emaj7| Emaj7 |\nMade up line\n";
+  const { code, result } = load(file("pipes.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.ok(chordsOf(result.song).filter((c) => c === "Emaj7").length === 2);
 });
 
 test("check fails when an ordinary word is read as a chord", () => {
@@ -184,4 +205,129 @@ test("load puts the facts and the written song into one result", () => {
   const { result } = load(path, "--facts", facts, "--as", "chordpro");
   assert.equal(result.status, "ok");
   assert.match(result.output, /\{title: Invented\}/);
+});
+
+// ---- Word files: built here from invented paragraphs ------------------------------------------------
+
+const crcTable = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+const crc32 = (buf) => {
+  let c = 0xffffffff;
+  for (const byte of buf) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+function zip(entries) {
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const name = Buffer.from(e.name);
+    const raw = Buffer.from(e.data);
+    const body = e.deflate ? deflateRawSync(raw) : raw;
+    const method = e.deflate ? 8 : 0;
+    const crc = crc32(raw);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(crc, 14); local.writeUInt32LE(body.length, 18); local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    parts.push(local, name, body);
+    const head = Buffer.alloc(46);
+    head.writeUInt32LE(0x02014b50, 0); head.writeUInt16LE(20, 4); head.writeUInt16LE(20, 6); head.writeUInt16LE(method, 10);
+    head.writeUInt32LE(crc, 16); head.writeUInt32LE(body.length, 20); head.writeUInt32LE(raw.length, 24);
+    head.writeUInt16LE(name.length, 28); head.writeUInt32LE(offset, 42);
+    central.push(head, name);
+    offset += 30 + name.length + body.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
+const para = (inner) => `<w:p><w:r>${inner}</w:r></w:p>`;
+const documentXml = `<?xml version="1.0"?><w:document xmlns:w="w"><w:body>
+${para("<w:t>Invented Title</w:t>")}
+${para("<w:t>Words &amp; Music: Ann B</w:t>")}
+<w:p/>
+${para("<w:t>[Verse 1]</w:t>")}
+<w:p><w:r><w:t xml:space="preserve">Made up</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>line</w:t></w:r><w:del w:id="1"><w:r><w:delText>gone words</w:delText></w:r></w:del><w:ins w:id="2"><w:r><w:t> kept words</w:t></w:r></w:ins></w:p>
+<w:p><w:pPr><w:rPr><w:del w:id="3" w:author="x"/></w:rPr></w:pPr><w:r><w:t>Second line it&apos;s here</w:t></w:r></w:p>
+${para("<w:t>Third line after a deleted mark</w:t>")}
+</w:body></w:document>`;
+const commentsXml = `<w:comments xmlns:w="w"><w:comment w:id="0"><w:p><w:r><w:t>SECRET COMMENT</w:t></w:r></w:p></w:comment></w:comments>`;
+const docx = (name, deflate) =>
+  file(name, zip([
+    { name: "[Content_Types].xml", data: "<Types/>", deflate },
+    { name: "word/document.xml", data: documentXml, deflate },
+    { name: "word/comments.xml", data: commentsXml, deflate },
+  ]));
+
+for (const [label, deflate] of [["stored", false], ["compressed", true]]) {
+  test(`a Word file (${label} zip) loads as its paragraph text only`, () => {
+    const { code, result } = load(docx(`song-${label}.docx`, deflate));
+    assert.equal(code, 0);
+    assert.deepEqual(result.problems, []);
+    assert.deepEqual(result.source, { type: "word" });
+    const lyrics = lyricLinesOf(result.song).join("\n");
+    assert.match(lyrics, /Made up line kept words/, "text, a tab as a space, inserted text kept");
+    assert.doesNotMatch(lyrics, /gone words/, "deleted text is ignored");
+    assert.doesNotMatch(JSON.stringify(result), /SECRET COMMENT/, "comments are ignored");
+    assert.match(lyrics, /Second line it's here/, "entities are decoded");
+    assert.match(lyrics, /Third line after a deleted mark/, "a deleted paragraph mark does not swallow what follows");
+    assert.deepEqual(sectionsOf(result.song), ["Verse 1"]);
+  });
+}
+
+test("a zip that is not a Word file fails with a plain message", () => {
+  const path = file("not-word.docx", zip([{ name: "readme.txt", data: "hello" }]));
+  const { code, result } = load(path);
+  assert.equal(code, 1);
+  assert.equal(result.status, "failed");
+  assert.match(result.problems[0].message, /not a Word/);
+});
+
+test("a plain text file with a .docx name is read as text", () => {
+  const { result } = load(file("really-text.docx", "[Verse 1]\nMade up line\n"));
+  assert.deepEqual(sectionsOf(result.song), ["Verse 1"]);
+});
+
+// ---- Labels without brackets, and chord lines the library cannot read --------------------------------
+
+test("section labels without brackets become sections and keep their chords, bar lines included", () => {
+  const sheet = [
+    "Invented Title", "", "V1", "| Ebmin7 | Db6/F Db |", "Am       C", "Some invented words here", "",
+    "CHORUS", "G        D", "More invented words", "", "Bridge", "| Am | G |",
+  ].join("\n");
+  const { code, result } = load(file("bare.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(sectionsOf(result.song), ["V1", "CHORUS", "Bridge"]);
+  assert.deepEqual(chordsOf(result.song).filter((c) => c !== "|"), ["Ebmin7", "Db6/F", "Db", "Am", "C", "G", "D", "Am", "G"]);
+});
+
+test("a lyric line that merely starts like a label is not made a section", () => {
+  const sheet = "Am       C\nChorus of invented birds\n\nV1\nMade up line\n";
+  const { result } = load(file("labelish.txt", sheet));
+  assert.deepEqual(sectionsOf(result.song), ["V1"]);
+});
+
+test("a chord line with a chord the library does not know is still read as chords", () => {
+  const sheet = "[Verse 1]\n|    Amin     |   D/F#   G(maj7) |\nSome invented words here\n";
+  const { code, result } = load(file("odd-chord.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  const chords = chordsOf(result.song);
+  assert.ok(chords.includes("G(maj7)") && chords.includes("D/F#") && chords.includes("Amin"), chords.join(" "));
+  const lyrics = lyricLinesOf(result.song).join("\n");
+  assert.doesNotMatch(lyrics, /G\(maj7\)/, "the chord line is not left among the lyrics");
+});
+
+test("a chord line on its own, with no lyric below, is kept as chords", () => {
+  const { code, result } = load(file("alone.txt", "[Intro]\n| Amin | D/F# G(maj7) |\n\n[Verse 1]\nMade up line\n"));
+  assert.equal(code, 0);
+  assert.ok(chordsOf(result.song).includes("G(maj7)"));
 });

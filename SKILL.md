@@ -13,12 +13,13 @@ Version 0.1, provisional. The scripts under "What works now" are built; capabili
 
 ## What works now
 
-Seven scripts in `scripts/`. `load.mjs` runs the others in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
+Eight scripts in `scripts/`. `load.mjs` runs the others in order; each of them also works on its own. Each takes data on standard input or from a file, prints JSON or text on standard output, and prints notes and errors on standard error.
 
 | Script | Does | Exit codes |
 |---|---|---|
-| `load.mjs <file \| web address \| ->` | **The all-in-one.** Takes a file, pasted text (`-`), a saved web page, or a web address (fetched once, because the user gave it; Genius lyrics pages only today; the user is responsible for having the right to use the content). Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
+| `load.mjs <file \| Word file \| web address \| ->` | **The all-in-one.** Takes a file, pasted text (`-`), a Word file (text only), a saved web page, or a web address (fetched once, because the user gave it; Genius lyrics pages only today; the user is responsible for having the right to use the content). Parse, set aside lines, add facts, check, optionally write out, in one command: `--facts facts.json`, `--set-aside 1,2`, `--as chordpro`, `--output song.cho`, `--format`. `-` reads pasted text on standard input. Prints one JSON result: `status` (`ok`, `needs-info` when a title, credits or date is missing, or `failed`), `missing`, `questions`, `problems`, `notes`, `setAside`, `song`, and `output`. A song that fails the check is never returned. | 0 loaded; 1 failed; 2 bad option |
 | `parse.mjs <file>` | Reads one well-formed sheet and prints ChordSheetJS's own JSON, unchanged. Picks ChordPro, chords over words or Ultimate Guitar style itself, or takes `--format` (also `lyrics-only`: text with no chords, where a line that is only `[Something]` is a section header and nothing is ever read as a chord). A sheet it cannot read gives the line and column, the lines around it and a hint. | 0 done; 1 could not parse; 2 unknown format |
+| `read-docx.mjs <song.docx>` | Takes the text out of a Word file: one line for each paragraph, a tab as a space. Comments, deleted text (tracked changes), formatting, styles and pictures are ignored; text inside a table comes out one line per paragraph. | 0 read; 1 not a Word file it can read; 2 bad option or file |
 | `read-page.mjs <page.html>` | Takes the lyrics and song facts (title, artist, writers, album, date) out of a saved Genius page, using the data the page embeds for itself, parsed as text: none of the page's code is run. Clutter, ids, counts, credits and the site's own copyright are left out. A page it does not understand gives a plain message. | 0 read; 1 not a page it understands; 2 bad option or input |
 | `add-metadata.mjs --meta facts.json` | Adds song facts (title, subtitle, artist, writer, composer, lyricist, copyright, album, year, date, version, key, time, tempo, duration, capo) to the parsed JSON as metadata lines. Lyric lines are not touched. Values are kept as written, for example `"tempo": "124 bpm"`. | 0 done; 1 input not from parse; 2 bad option or facts |
 | `set-aside.mjs --original <file> --lines 1,2` | Takes lines that are not lyrics (a title, a credit line) out of the parsed song. Lines are named by their number in the original, never retyped. Changes nothing if a named line is not a lyric line. | 0 done; 1 a named line is not a lyric line; 2 bad option or input |
@@ -32,9 +33,16 @@ node scripts/parse.mjs song.cho | node scripts/check.mjs --original song.cho
 
 A web page's lyrics have no chords, so `load` reads a page with `lyrics-only`: `[Verse 1: Name]` becomes the section "Verse 1" followed by a `comment` line holding the performer, and a performer's name such as "Ann B" can never be read as a chord.
 
-Parse also does three repairs the library does not (it also trims the padding spaces the readers leave on chords): a line of two or more bracketed chords in an Ultimate Guitar style sheet is read as a chord line (the library would drop the chords), and a section runs from its header to the next header, across blank lines (the library ends it at the first blank line). A header the library keeps only as a comment, such as POST-CHORUS, becomes a section.
+Parse also makes these repairs, because the library gets them wrong:
+- Section labels written without brackets (`V1`, `VERSE 1`, `Chorus`, `Chorus x2`) are read as section headers; the chord readers would take `V1` for chords. Header lines (`[Verse 1]`) become sections, and `[Verse 1: Name]` becomes the section "Verse 1" plus a `comment` with the performer.
+- Text with chords written inline (`[Am]word`) and `[Header]` lines is read as ChordPro, with the headers turned into sections first.
+- A chord line the library cannot give back exactly as written (`G(maj7)`, `Em7(♭5)/D`, `| Emaj7| Emaj7 |`) is read by this skill instead: its chords are attached to the lyric line below by column. A bar mark touching a chord counts as a mark of its own. `x2` and `2x` are repeat marks.
+- A line of two or more bracketed chords (`[D] [Am] [G/D]`) is read as a chord line.
+- A section runs from its header to the next header, across blank lines; padding spaces on chords are trimmed.
 
-Not yet built: pages from sites other than Genius, labelling sections, annotations read from the text (such as backing vocals), Word files. The scripts are self-contained and need only Node.js 18 or later.
+Known limits: a chord line that has a word in it (`Intro | Gm79 | C7`) is read as a lyric line, and `check` says so; a bracket that is never closed is a parse error that names the line (fix it in the file).
+
+Not yet built: pages from sites other than Genius, finding a song by its title and artist, labelling sections beyond the headers the writer wrote, annotations read from the text (such as backing vocals), Nashville numbers (a ChordPro file with number chords is read, but `check` does not accept numbers as chords, so it fails). The scripts are self-contained and need only Node.js 18 or later.
 
 ## What it is for
 

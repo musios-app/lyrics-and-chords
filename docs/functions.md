@@ -36,7 +36,7 @@ Decided 9 Oct 2026: callers ask the skill to **load** content. Most other functi
 
 Because a skill is instructions the assistant follows, not a function it can call, `load` is a workflow written in `SKILL.md`. A script does the exact steps; Claude does the judgement steps.
 
-## 0. load (exists: `scripts/load.mjs`; pasted text, files, saved Genius pages and Genius addresses; other sites planned)
+## 0. load (exists: `scripts/load.mjs`; pasted text, files, Word files (text only), saved Genius pages and Genius addresses; other sites planned)
 
 ```ts
 load(source:

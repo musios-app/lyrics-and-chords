@@ -4,7 +4,7 @@
 // Prints a JSON result on standard output; a one-line summary goes to standard error.
 // Exit codes: 0 lyrics match; 1 they do not; 2 bad option or unreadable input.
 import { readFileSync } from "node:fs";
-import { CHORD } from "./chord-words.mjs";
+import { CHORD, MARK, chordTokens } from "./chord-words.mjs";
 import { norm, songLyrics, originalLines, matchInOrder, parseLineList } from "./lyric-lines.mjs";
 
 const args = process.argv.slice(2);
@@ -79,9 +79,8 @@ try {
   process.exit(2);
 }
 
-const MARK = /^(\||\|\||\/|x|-|N\.C\.|\(?[0-9]+x\)?|:\|\|?|\|:)$/;
 const isChordLine = (s) => {
-  const t = s.trim().split(/\s+/).filter(Boolean);
+  const t = chordTokens(s).map((x) => x.text);
   return t.length > 0 && t.every((w) => CHORD.test(w) || MARK.test(w));
 };
 
@@ -137,7 +136,8 @@ const accounted = (o) => {
   const escape = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return facts.some((f) => {
     const v = f && f.trim();
-    return v && (t === v || new RegExp(`^[A-Za-z][A-Za-z ]*:\\s*${escape(v)}$`).test(t));
+    // "Verse 1:" is the section "Verse 1": a trailing colon on a label does not matter.
+    return v && (t === v || t.replace(/\s*:$/, "") === v || new RegExp(`^[A-Za-z][A-Za-z ]*:\\s*${escape(v)}$`).test(t));
   });
 };
 // Chords: every chord in the original should still be in the song.
@@ -161,7 +161,7 @@ const chordsIn = (text) => {
       const words = m[1].split(/\s+/).filter(Boolean);
       if (words.length && words.every((w) => CHORD.test(w))) words.forEach((t) => add(t, i + 1));
     }
-    if (isChordLine(raw) && !raw.includes("[")) raw.trim().split(/\s+/).forEach((t) => add(t, i + 1));
+    if (isChordLine(raw) && !raw.includes("[")) chordTokens(raw).forEach((t) => add(t.text, i + 1));
   });
   return counts;
 };
