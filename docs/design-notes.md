@@ -237,3 +237,15 @@ Reported from the Coach side, with a minimal repro. All four points were true.
 Not done: guessing `lyrics-only` as the format for a sheet with no chords. The sections come out right either way.
 
 Run on the 103 Word files after the change: the same 14 fail as before. Four more fail by design: Word's temporary lock files (`~$name.docx`) are now refused as "does not look like a text file" instead of being read as a song.
+
+## Bug found in use: bar charts, headers with a note, held chords (15 Oct 2026)
+
+Reported from the Coach side after loading a pasted song (invented words are used in the tests).
+1. **Bar charts were placed on words.** A chart line (`|  C  |  G  |`) directly above a lyric line was attached to it by column, so the chart was cut across the words. Now any chord line that has `|` bars is kept as chord-only line(s) and the lyric below stays plain. Bar marks are kept as items of the chord line so the line can be written back as written.
+2. **`[VERSE 5] (sung quietly)` was a lyric line**, so Verse 5 fell inside the section before it. A header followed by a note wrapped in `( )` or `[ ]` is now a header, and the note is a `comment` straight after the section start (as a performer is). Other text after a header is not touched: it might be a lyric.
+3. **A hold mark (`G …`, `G…`, `G..`) turned a chord line into a lyric line.** The hold mark is now part of the chord line and joins the chord before it, written as it was (`"G …"`); `check` accepts it. The library's `annotation` field was not used because its formatters lose it.
+
+Side effect on the Word files: the five files that failed with chord lines now load (their bar lines were the problem), so 8 of 103 fail now: the 4 Song A files with the unclosed `[` and the 4 `Song B` files with a chord line that contains a word.
+
+Not changed, from the same report: (a) a fact line after the last section (`Acknowledgements: ...`) stays inside that section's tags; the facts are not lost and `lyrics-only` writes them first. (b) A `-` for an empty bar is kept as an item named `-`, as `|` is; both are marks, not chord names, and `check` accepts them.
+

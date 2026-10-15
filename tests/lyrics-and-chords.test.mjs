@@ -540,3 +540,39 @@ test("a bar line whose closing ] is missing is named by line in the message", ()
   assert.equal(result.status, "failed");
   assert.match(result.problems[0].message, /Line 2 has a "\[" that is never closed/);
 });
+
+// ---- Bar charts, headers with a note, held chords (bug report for 0.1.2, 15 Oct 2026) -----------------------
+
+const barSheet =
+  "[VERSE 1]\n|  G  |   G  |  D  | D   |\n|  C  |  C  |  G  | D C |\nEarly invented morning\nSecond invented line\n\n" +
+  "[INSTRUMENTAL / SOLO]\n|  G  |  D  |\n\n[VERSE 5] (sung quietly, intimately)\nA quiet invented line\n\n" +
+  "[OUTRO]\n|  -  |  C  |\n|  C   |  G …  |\nLast invented line\n";
+const pairsOf = (song) => song.lines.flatMap((l) => l.items.filter((x) => x.type === "chordLyricsPair"));
+
+test("bar-chart lines stay chord-only lines; the lyric below is left as plain words", () => {
+  const { code, result } = load(file("bars.txt", barSheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  for (const words of ["Early invented morning", "Last invented line"]) {
+    const pair = pairsOf(result.song).filter((x) => x.lyrics === words);
+    assert.equal(pair.length, 1, `${words} is one plain pair`);
+    assert.equal(pair[0].chords, "", `${words} has no chord on it`);
+  }
+  assert.equal(chordsOf(result.song).filter((c) => c === "|").length, 19, "every bar mark is kept");
+});
+
+test("a header with a note in ( ) after it is a header, and the note is a comment", () => {
+  const { result } = load(file("note-header.txt", barSheet));
+  assert.deepEqual(sectionsOf(result.song), ["VERSE 1", "INSTRUMENTAL / SOLO", "VERSE 5", "OUTRO"]);
+  assert.deepEqual(commentsOf(result.song), ["sung quietly, intimately"]);
+  assert.ok(result.notes.some((n) => /header\(s\) with a note/.test(n)));
+});
+
+test("a hold mark after a chord keeps the chord and is written back as it was", () => {
+  const sheet = "[OUTRO]\n|  C  |  G …  | D… | A.. |\nLast invented line\n";
+  const { code, result } = load(file("hold.txt", sheet), "--as", "chords-over-words");
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  assert.deepEqual(chordsOf(result.song).filter((c) => c !== "|"), ["C", "G …", "D…", "A.."]);
+  assert.match(result.output, /\| C \| G … \| D… \| A\.\. \|/);
+});

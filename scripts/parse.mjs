@@ -43,6 +43,20 @@ let text = (files.length ? readFileSync(files[0], "utf8") : readFileSync(0, "utf
   .replace(/^﻿/, "")
   .replace(/\r\n?/g, "\n");
 
+// A header with a note after it, "[VERSE 5] (sung quietly)" or "[Chorus] [twice]", is the header with a note
+// ("[VERSE 5: sung quietly]"): the note becomes a comment after the section start, as a performer does.
+// Only a note wrapped in ( ) or [ ] counts: any other text after a header might be a lyric.
+{
+  let withNote = 0;
+  text = text.split("\n").map((line) => {
+    const m = line.match(/^(\s*)\[([^\]]+)\]\s+[(\[]([^()\[\]]+)[)\]]\s*$/);
+    if (!m || m[2].trim().split(/\s+/).every((w) => CHORD.test(w) || MARK.test(w))) return line;
+    withNote++;
+    return `${m[1]}[${m[2].trim()}${m[2].includes(":") ? "; " : ": "}${m[3].trim()}]`;
+  }).join("\n");
+  if (withNote) console.error(`note: ${withNote} header(s) with a note after them were read as headers with a comment`);
+}
+
 function detect(t) {
   if (/^\s*\{\s*[a-z_]+\s*(:|\})/im.test(t)) return "chordpro";
   if (/\[[A-G][^\]\s]*\]/.test(t) && !/^\s*\[[^\]]+\]\s*$/m.test(t)) return "chordpro";
@@ -213,7 +227,8 @@ function protectChordLines(t) {
     } catch {
       exact = false;
     }
-    if (exact) return line;
+    // A bar chart is the progression of its section, not chords to place on words: always keep it as written.
+    if (exact && !words.includes("|")) return line;
     saved.push(line);
     return `@@CHORDLINE${saved.length - 1}@@`;
   });
@@ -227,9 +242,16 @@ function restoreChordLines(lines, saved) {
     const marked = (plain(lines[i]) || "").trim().match(PLACEHOLDER);
     if (!marked) { out.push(lines[i]); continue; }
     const raw = saved[Number(marked[1])];
-    const tokens = chordTokens(raw).map((x) => Object.assign([x.text], { index: x.index }));
+    // A hold mark joins the chord before it ("G …"), written as it was.
+    const tokens = [];
+    for (const x of chordTokens(raw)) {
+      const last = tokens[tokens.length - 1];
+      if (last && /^(…|\.{2,})$/.test(x.text)) last[0] = raw.slice(last.index, x.index + x.text.length);
+      else tokens.push(Object.assign([x.text], { index: x.index }));
+    }
     const below = plain(lines[i + 1]);
-    if (below !== null && below.trim() && !PLACEHOLDER.test(below.trim())) {
+    const bars = tokens.some((x) => /^\|+$/.test(x[0]));
+    if (!bars && below !== null && below.trim() && !PLACEHOLDER.test(below.trim())) {
       const items = [];
       if (tokens[0].index > 0) items.push(item("", below.slice(0, tokens[0].index)));
       tokens.forEach((t, k) => items.push(item(t[0], below.slice(t.index, k + 1 < tokens.length ? tokens[k + 1].index : below.length))));

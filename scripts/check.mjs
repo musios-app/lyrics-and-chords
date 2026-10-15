@@ -132,6 +132,9 @@ const accounted = (o) => {
   if (setAside.has(o.n)) return true;
   if (/^\{.*\}$/.test(t) || t.startsWith("#")) return true;
   if (/^\[[^\]]*\]$/.test(o.raw.trim())) return true;
+  // "[VERSE 5] (sung quietly)": a header with a note after it; the note is in the song as a comment.
+  const withNote = o.raw.trim().match(/^\[[^\]]+\]\s+[(\[]([^()\[\]]+)[)\]]$/);
+  if (withNote && facts.some((f) => f && f.trim() === withNote[1].trim())) return true;
   if (isChordLine(o.raw)) return true;
   const escape = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return facts.some((f) => {
@@ -170,7 +173,7 @@ const songChords = new Map();
 for (const line of song.lines) {
   for (const x of line.items) {
     if (x.type !== "chordLyricsPair" || !x.chords) continue;
-    for (const t of x.chords.trim().split(/\s+/).filter(Boolean)) if (CHORD.test(t)) songChords.set(t, (songChords.get(t) || 0) + 1);
+    for (const { text: t } of chordTokens(x.chords)) if (CHORD.test(t)) songChords.set(t, (songChords.get(t) || 0) + 1);
   }
 }
 
@@ -180,7 +183,7 @@ song.lines.forEach((line, i) => {
   for (const x of line.items) {
     if (x.type !== "chordLyricsPair" || !x.chords) continue;
     const value = x.chords.trim();
-    if (value && !value.split(/\s+/).every((t) => CHORD.test(t) || MARK.test(t))) {
+    if (value && !chordTokens(value).every((t) => CHORD.test(t.text) || MARK.test(t.text))) {
       if (!notChords.has(value)) notChords.set(value, []);
       notChords.get(value).push(i + 1);
     }
@@ -190,7 +193,7 @@ song.lines.forEach((line, i) => {
 // Section headers in the original ([Label] on a line of its own, with something in it that is not a
 // chord) against the sections in the song.
 const bracketHeaders = origLines.filter((o) => {
-  const m = o.raw.trim().match(/^\[([^\]]+)\]$/);
+  const m = o.raw.trim().match(/^\[([^\]]+)\](?:\s+[(\[][^()\[\]]+[)\]])?$/);
   return m && !m[1].trim().split(/\s+/).every((w) => CHORD.test(w));
 });
 // Labels written without brackets ("Verse 1", "Chorus: Singer B") count too, unless they sit under a chord line.
