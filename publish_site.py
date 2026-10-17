@@ -168,6 +168,16 @@ def main():
     downloads.mkdir(parents=True, exist_ok=True)
 
     (folder / "index.md").write_text(page, encoding="utf8")
+
+    # The page's icon, and any other pictures kept beside it in the repo (site/lyrics-and-chords/images/).
+    images = PAGE.parent / "images"
+    wanted = re.search(r"^icon:\s*images/(\S+)\s*$", page, re.MULTILINE)
+    if wanted and not (images / wanted.group(1)).is_file():
+        stop(f"the page names the icon images/{wanted.group(1)}, but {images / wanted.group(1)} is not in the repo.")
+    if images.is_dir():
+        (folder / "images").mkdir(exist_ok=True)
+        for picture in sorted(p for p in images.iterdir() if p.is_file()):
+            shutil.copyfile(picture, folder / "images" / picture.name)
     shutil.copyfile(SKILL_FILE, downloads / f"{NAME}.skill")
     shutil.copyfile(SKILL_FILE, downloads / f"{NAME}-{version}.skill")
     with tempfile.TemporaryDirectory() as temp:
@@ -193,6 +203,8 @@ def main():
 
     print(f"Copied version {version} (commit {commit}) into {folder}:")
     print("  index.md")
+    if images.is_dir():
+        print("  images/ (" + ", ".join(sorted(p.name for p in images.iterdir() if p.is_file())) + ")")
     print(f"  downloads/{NAME}.skill")
     print(f"  downloads/{NAME}-{version}.skill")
     print(f"  downloads/{NAME}-{version}-source.zip")
