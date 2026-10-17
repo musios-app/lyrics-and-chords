@@ -4,7 +4,7 @@ description: Loads song lyric and chord files (plain lyrics, chords above words,
 license: GPL-2.0-only
 compatibility: Requires Node.js 18 or later. Makes no network requests.
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Lyrics & Chords (provisional)
@@ -170,6 +170,8 @@ Every message to the writer has five parts:
 3. **What was already tried,** so they do not repeat it.
 4. **One or two concrete choices:** fix line N like this, paste the text here instead, or tell me to leave a line out.
 5. **A statement that their file has not been changed.**
+
+Start from each problem's `message`: `check` writes one in plain words for every problem, with the line, what happened to it and what to look for. Join related ones into a single message to the writer rather than listing each. A message gives no more certainty than the skill has: when it says "probably", say so.
 
 Ask them about structure (a bracket, a header, page text). Never ask them to change their lyrics to suit the tool.
 

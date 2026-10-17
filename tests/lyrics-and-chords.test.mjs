@@ -576,3 +576,45 @@ test("a hold mark after a chord keeps the chord and is written back as it was", 
   assert.deepEqual(chordsOf(result.song).filter((c) => c !== "|"), ["C", "G …", "D…", "A.."]);
   assert.match(result.output, /\| C \| G … \| D… \| A\.\. \|/);
 });
+
+test("facts written after the last lyric line are moved up with the other facts", () => {
+  const sheet = "title: Invented Song\n\n[Verse 1]\nFirst invented line\n\n[Outro]\nLast invented line\nAcknowledgements: Someone Invented\n";
+  const { code, result } = load(file("trailing-facts.txt", sheet));
+  assert.equal(code, 0);
+  assert.deepEqual(result.problems, []);
+  const names = result.song.lines.flatMap((l) => l.items.filter((x) => x.type === "tag").map((x) => x.name));
+  assert.deepEqual(names.slice(0, 2), ["title", "Acknowledgements"], "the fact sits with the title, before the first section");
+  assert.equal(names.filter((n) => n === "Acknowledgements").length, 1);
+  assert.deepEqual(sectionsOf(result.song), ["Verse 1", "Outro"]);
+  assert.ok(result.notes.some((n) => /fact line\(s\) after the last lyric line/.test(n)));
+});
+
+// ---- Plain messages for a failed check -----------------------------------------------------------------------
+
+test("every problem from a failed load has a plain message with the line, and the messages do not teach one typo", () => {
+  const sheets = {
+    chordTypo: "[VERSE 1]\n|  F  C/F  |  Dmin/F  C /F  |  x2\nFirst invented line\n",
+    wordInChordLine: "[VERSE 1]\nIntro | Gm79 | C7\nFirst invented line\n",
+    unknownSymbol: "[VERSE 1]\n|  F  |  C§  |  G  |\nFirst invented line\n",
+  };
+  for (const [name, sheet] of Object.entries(sheets)) {
+    const { result } = load(file(`${name}.txt`, sheet));
+    if (result.status !== "failed") continue; // a sheet the skill reads fine needs no message
+    assert.ok(result.problems.length > 0, name);
+    for (const p of result.problems) {
+      assert.equal(typeof p.message, "string", `${name}: every problem has a message`);
+      assert.doesNotMatch(p.message, /@@CHORDLINE|undefined|\[object/, `${name}: no internal text in a message`);
+      assert.doesNotMatch(p.message, /for example|written instead of/i, `${name}: no example is tied to one typo`);
+    }
+    const lines = result.problems.filter((p) => p.kind === "missing" || p.kind === "changed");
+    assert.ok(lines.some((p) => new RegExp(`Line ${p.line ?? ""}`).test(p.message) || /Line \d+/.test(p.message)), `${name}: names a line`);
+  }
+});
+
+test("a missing line is quoted in its message with the line number", () => {
+  const { result } = load(file("quoted.txt", "[VERSE 1]\n|  F  C/F  |  Dmin/F  C /F  |  x2\nFirst invented line\n"));
+  assert.equal(result.status, "failed");
+  const missing = result.problems.find((p) => p.kind === "missing");
+  assert.match(missing.message, /^Line 2, "\| F C\/F \| Dmin\/F C \/F \| x2", was left out of the result\./);
+  assert.match(missing.message, /Look at the line for anything unusual/);
+});

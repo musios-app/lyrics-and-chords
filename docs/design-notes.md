@@ -4,6 +4,10 @@ Started 9 Oct 2026 · @Andrew
 
 Working notes. Decisions are Andrew's; everything else is a proposal.
 
+## TODO
+
+- **Reorganise these notes by topic (asked 17 Oct 2026).** The sections are in the order the ideas came up, with bug reports, decisions and dated updates mixed together, so a reader has to hunt. Regroup by subject: what the skill does, the formats it reads and the repairs made, how failures are reported (the error principle), outputs (JSON, text, `lyrics-only`), what was learned from real files, and what is decided, deferred or open. Keep each decision's date and who made it. Take out what later notes replaced (for example the web-source material, now dropped). Do this as its own step, with no change to what the notes say.
+
 ## Purpose
 
 Read lyric and chord sheets in many layouts and return one normalised JSON structure, or say plainly what could not be resolved. It is a helper for the Songwriting Coach (a separate, proprietary skill, which must work fully without it) and is useful on its own.
@@ -248,4 +252,14 @@ Reported from the Coach side after loading a pasted song (invented words are use
 Side effect on the Word files: the five files that failed with chord lines now load (their bar lines were the problem), so 8 of 103 fail now: the 4 Song A files with the unclosed `[` and the 4 `Song B` files with a chord line that contains a word.
 
 Not changed, from the same report: (a) a fact line after the last section (`Acknowledgements: ...`) stays inside that section's tags; the facts are not lost and `lyrics-only` writes them first. (b) A `-` for an empty bar is kept as an item named `-`, as `|` is; both are marks, not chord names, and `check` accepts them.
+
+## Facts after the last lyric line (17 Oct 2026, unreleased)
+
+A fact written at the end of the song (`Acknowledgements: ...`, `Copyright: ...`) sat inside the last section's tags. It is now moved up with the other facts at the top, in the order found, and `parse` says so in a note. Only fact tags move: the known fact names and "Label: value" lines the reader made into tags. Sections, comments and directives stay put, and so does a fact in the middle of the song (a `key` or `capo` there can mean a change at that point). `check` is unaffected. Of the 103 Word files, 1 had such a line.
+
+## Plain messages for a failed check (17 Oct 2026, unreleased)
+
+The four `Song B` files failed because a chord was written with a space inside it (`C /F`). The old output was a list of kinds (`missing`, `not-a-chord`, a leaked internal marker), no help to a writer. Following the error principle above, every problem from `check` now carries a plain `message`: the line quoted with its number, what happened to it, and a general list of what to look for. A hint about which word is probably the culprit is added only when the line is mostly chords with one or two words that are not (it then says "probably"). No message is written for one particular typo, because the ways a file can be wrong are many; the same three parts are given for every kind of problem. Related leftovers (`"/F" is part of the problem above`) say there is nothing more to fix.
+
+The leaked marker: a line the skill does not take for chords sat directly above a chord line it had set aside, so the library laid chords over the marker text. The message for that case says the line was mixed up with a nearby line, and to look at the lines just above and below.
 

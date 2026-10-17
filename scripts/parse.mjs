@@ -288,6 +288,29 @@ function readLyricsOnly(t) {
   return { type: "chordSheet", lines };
 }
 
+// A fact written after the last lyric line ("Acknowledgements: ...", "Copyright: ...") belongs with the other facts at the top,
+// not inside the last section. Only fact tags move (the known fact names, and "Label: value" lines the reader made into
+// tags); sections, comments and directives stay where they are, and so does a fact in the middle of the song.
+const KNOWN_FACTS = ["title", "subtitle", "artist", "composer", "lyricist", "writer", "copyright", "album", "year", "date", "version", "key", "time", "tempo", "duration", "capo"];
+function liftTrailingFacts(lines) {
+  const tagOf = (line) => (line.items.length === 1 && line.items[0].type === "tag" ? line.items[0] : null);
+  const isFact = (tag) => tag && !/^(start_of_|end_of_)/.test(tag.name) && tag.name !== "comment" && (KNOWN_FACTS.includes(tag.name.toLowerCase()) || /^[A-Z]/.test(tag.name));
+  const hasWords = (line) => line.items.some((x) => x.type === "chordLyricsPair" && (x.lyrics.trim() || x.chords));
+  let lastWords = -1;
+  lines.forEach((line, i) => { if (hasWords(line)) lastWords = i; });
+  if (lastWords < 0) return 0;
+  const moved = [];
+  for (let i = lines.length - 1; i > lastWords; i--) {
+    if (isFact(tagOf(lines[i]))) moved.unshift(...lines.splice(i, 1));
+  }
+  if (!moved.length) return 0;
+  // after the facts that open the song
+  let at = 0;
+  for (let i = 0; i < lines.length && (isFact(tagOf(lines[i])) || !lines[i].items.length); i++) if (isFact(tagOf(lines[i]))) at = i + 1;
+  lines.splice(at, 0, ...moved);
+  return moved.length;
+}
+
 if (format === "chords-over-words" || format === "ultimate-guitar") {
   const protectedText = protectChordLines(toParse);
   toParse = protectedText.text;
@@ -338,6 +361,8 @@ try {
       if (fixed.promoted) console.error(`note: ${fixed.promoted} header(s) read as comments were made sections`);
     }
   }
+  const lifted = liftTrailingFacts(json.lines);
+  if (lifted) console.error(`note: ${lifted} fact line(s) after the last lyric line were moved up with the other facts`);
   console.log(JSON.stringify(json, null, 2));
 } catch (err) {
   console.error(explain(err));

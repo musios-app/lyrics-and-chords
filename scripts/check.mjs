@@ -262,6 +262,44 @@ if (headerLines.length && sectionsInSong < headerLines.length) {
 }
 const problems = found.sort((a, b) => a[0] - b[0]).map((p) => p[1]);
 
+// Every problem also gets a `message` in plain words for the writer. Each one says the same three things, whatever went
+// wrong: which line of the file, what the skill did with it, and what to look for. The fields stay as they were, for Claude.
+const clip = (t, n = 90) => (String(t).length > n ? `${String(t).slice(0, n - 1)}…` : String(t));
+const quoted = (words) => words.map((w) => `"${w}"`).join(" and ");
+const LOOK_FOR = "Look at the line for anything unusual: a stray space, a missing or extra bracket or bar, a symbol, or a word where a chord belongs.";
+// Only when it can be said with some confidence: a line that is mostly chords and marks, with a word or two that are neither.
+const notChordWords = (text) => {
+  const t = chordTokens(text).map((x) => x.text);
+  const bad = t.filter((w) => !CHORD.test(w) && !MARK.test(w));
+  return t.length >= 3 && bad.length >= 1 && bad.length <= 2 && (t.length - bad.length) / t.length >= 0.6 ? bad : [];
+};
+const PLACEHOLDER_TEXT = /@@CHORDLINE\d+@@/;
+const chordProblemsExist = problems.some((q) => q.kind === "missing" && notChordWords(q.text).length);
+for (const p of problems) {
+  if (p.kind === "missing") {
+    const bad = notChordWords(p.text);
+    p.message = `Line ${p.line}, "${clip(p.text)}", was left out of the result. ` +
+      (bad.length
+        ? `It looks like a line of chords, but ${quoted(bad)} ${bad.length > 1 ? "are" : "is"} probably not a chord name, which would explain it. ${LOOK_FOR}`
+        : LOOK_FOR);
+  } else if (p.kind === "changed") {
+    p.message = PLACEHOLDER_TEXT.test(p.songText)
+      ? `Line ${p.line}, "${clip(p.originalText)}", was mixed up with a nearby line the skill could not make sense of. Look at this line and the lines just above and below it. ${LOOK_FOR.replace("Look at the line for", "Check for")}`
+      : `Line ${p.line} came out different. In your file: "${clip(p.originalText)}". In the result: "${clip(p.songText)}".` +
+        (p.onlyInOriginal.length || p.onlyInSong.length ? ` Only in your file: ${p.onlyInOriginal.join(" ") || "nothing"}. Only in the result: ${p.onlyInSong.join(" ") || "nothing"}.` : "");
+  } else if (p.kind === "extra") {
+    p.message = `The result has a line that is not in your file: "${clip(p.text)}". ${LOOK_FOR.replace("the line", "the lines around it")}`;
+  } else if (p.kind === "chords-missing") {
+    p.message = `The chord ${p.chord} appears ${p.inOriginal} time(s) in your file but ${p.inSong} in the result (your file, lines ${p.lines.join(", ")}). ${LOOK_FOR.replace("the line", "those lines")}`;
+  } else if (p.kind === "not-a-chord") {
+    p.message = chordProblemsExist
+      ? `"${p.value}" is part of the problem with the lines listed above: nothing more to fix.`
+      : `"${p.value}" was read as a chord but is not a chord name. Look for a chord line with something unusual in it.`;
+  } else if (p.kind === "sections-missing") {
+    p.message = `Your file has ${p.headersInOriginal} section headers (lines ${p.lines.join(", ")}) but the result has ${p.sectionsInSong} sections, so some headers were not read as headers. Look at those lines for anything unusual after or around the header.`;
+  }
+}
+
 const result = { ok: problems.length === 0, lyricLines: lyrics.length, problems };
 if (setAsideLines) {
   const inSong = new Set([...matchedAt.values()].map((k) => origLines[k].n));
