@@ -4,6 +4,7 @@ title: "Lyrics & Chords Skill"
 description: Beta. A Claude skill that reads song lyrics and chord sheets in many formats (ChordPro, Genius and Ultimate Guitar pages, plain text, chords above words, Word files), corrects many common errors, and returns a plain reading plus structured JSON. Works with the Songwriting Coach. Free software under the GPL.
 tagline: "BETA: Reads a wide range of song lyrics and chord file formats into Claude."
 icon: images/icon.svg
+gitrepo: https://github.com/musios-app/lyrics-and-chords
 ---
 
 <img src="images/icon.svg" alt="" class="float-end ms-3 mb-3" width="96" height="96">
