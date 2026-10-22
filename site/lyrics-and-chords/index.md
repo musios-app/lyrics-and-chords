@@ -5,6 +5,12 @@ description: Beta. A Claude skill that reads song lyrics and chord sheets in man
 tagline: "BETA: Reads a wide range of song lyrics and chord file formats into Claude."
 icon: images/icon.svg
 gitrepo: https://github.com/musios-app/lyrics-and-chords
+software:
+  categories: [Music, Songwriting, Lyrics and chord sheets]
+  version: "{{version}}"
+  download: /projects/lyrics-and-chords/downloads/lyrics-and-chords.skill
+  license: https://spdx.org/licenses/GPL-2.0-only.html
+  repo: https://github.com/musios-app/lyrics-and-chords
 ---
 
 <img src="images/icon.svg" alt="" class="float-end ms-3 mb-3" width="96" height="96">

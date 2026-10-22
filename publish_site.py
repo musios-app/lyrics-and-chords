@@ -129,7 +129,7 @@ def example_page(example, shown, cleaned, formatted, previous, following):
         source_block = (f"The page: <{example['source_url']}>\n\nThe text on that page:\n\n")
     word = f"\n[Download the Word file](example-{n}.docx)\n" if example.get("docx") else ""
     return (
-        f'---\nlayout: default\ntitle: "{title}"\nsitemap: false\nnoindex: true\n---\n\n'
+        f'---\nlayout: default\ntitle: "{title}"\n---\n\n'
         f"# {title}\n\n**Input Format:** {example['input_format']}\n\n{example['intro']}{note}\n{word}\n"
         f"\\[ [Input](#input) \\]&emsp;\\[ [Clean text output](#clean-text-output) \\]&emsp;\\[ [JSON output](#json-output) \\]\n\n"
         f"## Input {{#input}}\n\n{source_block}{{% raw %}}\n```text\n{shown}\n```\n{{% endraw %}}\n\n"
