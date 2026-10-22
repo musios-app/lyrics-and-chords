@@ -25,7 +25,9 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PAGE = ROOT / "site" / "lyrics-and-chords" / "index.md"
+sys.path.insert(0, str(ROOT / "site"))
+import render_page  # noqa: E402  (site/ is not a package)
+PAGE = ROOT / "site" / "lyrics-and-chords" / "page.md"  # the one source for the page and the README (see render_page.py)
 SKILL_FILE = ROOT / "dist" / "lyrics-and-chords.skill"
 EXAMPLES_FILE = ROOT / "site" / "lyrics-and-chords" / "examples.json"
 EXAMPLES_DIR = ROOT / "examples"
@@ -159,7 +161,7 @@ def main():
     if not (args.site / "_config.yml").exists():
         stop(f"{args.site} doesn't look like the musios.app site (no _config.yml). Use --site to point at it.")
 
-    page = PAGE.read_text(encoding="utf8").replace("{{version}}", version).replace("{{commit}}", commit)
+    page = render_page.render(PAGE.read_text(encoding="utf8"), "page").replace("{{version}}", version).replace("{{commit}}", commit)
     if "{{" in page.replace("{% raw %}", "").replace("{% endraw %}", ""):
         stop("the page still has an unfilled {{placeholder}}")
 
