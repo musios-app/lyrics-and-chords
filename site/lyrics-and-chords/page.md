@@ -35,32 +35,32 @@ Send **Feedback** to [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@mus
 
 <!--[page]-->
 <style>
-  .gs-start { border: 1px solid #e8e6dc; border-radius: 24px; background: #f8f8fa; padding: 24px 24px 18px; margin: 1.25rem 0 1.5rem; clear: both; }
+  .gs-start { position: relative; border: 1px solid #e8e6dc; border-radius: 24px; background: #f8f8fa; padding: 24px 24px 18px; margin: 1.25rem 0 1.5rem; clear: both; }
   .gs-note { color: #5d5a55; font-size: .85rem; margin-top: .6rem; padding-top: .5rem; border-top: 1px solid #e8e6dc; }
-  .gs-steps { display: grid; grid-template-columns: 96px repeat(3, 1fr); gap: 14px; margin: 18px 0 12px; padding: 0; list-style: none; }
-  .gs-intro { margin-left: 110px; }
+  .gs-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0 12px; padding: 0; list-style: none; }
+  .gs-intro { margin-right: 110px; min-height: 96px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .gs-intro > div { line-height: 1.25; }
+  .gs-title { display: block; color: #b83eaa; font-weight: 700; font-size: 1.2em; line-height: 1.25; }
   .gs-dl-table th, .gs-dl-table td { padding: .35rem .75rem !important; }
-  .gs-title { display: block; color: #b83eaa; font-weight: 700; font-size: 1.2em; }
   .gs-dl { color: #b83eaa !important; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
   .gs-dl:hover { color: #9d3490 !important; text-decoration: underline; }
   .gs-steps li { background: #fff; border: 1px solid #e8e6dc; border-radius: 16px; padding: 12px 14px; }
-  .gs-steps li.gs-icon-cell { background: none; border: 0; padding: 0; align-self: start; }
-  .gs-icon-cell img { display: block; width: 96px; height: 96px; }
+  .gs-icon { position: absolute; top: 24px; right: 24px; width: 96px; height: 96px; }
   .gs-n { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #b83eaa; color: #fff; font-weight: 700; font-size: .85rem; align-items: center; justify-content: center; margin-right: .5rem; }
   .gs-steps b { display: block; margin-bottom: .45rem; line-height: 1.25; }
   .gs-steps .gs-d { color: #5d5a55; font-size: .92rem; line-height: 1.25; }
   .gs-steps .gs-p { display: block; margin-top: .7rem; }
   .gs-steps .gs-p:first-child { margin-top: 0; }
-  @media (max-width: 760px) { .gs-intro { margin-left: 0; } .gs-start { padding: 18px 16px 14px; border-radius: 20px; } .gs-steps { grid-template-columns: 1fr; } .gs-steps li.gs-icon-cell { display: none; } }
+  @media (max-width: 760px) { .gs-intro { display: block; margin-right: 0; min-height: 0; } .gs-start { padding: 18px 16px 14px; border-radius: 20px; } .gs-steps { grid-template-columns: 1fr; } .gs-icon { display: none; } }
 </style>
 <div class="gs-start">
+  <img class="gs-icon" src="images/icon.svg" alt="" width="96" height="96">
   <div class="gs-intro">
     <b class="gs-title">Installation</b>
-    For claude.ai chat & code (online), Claude Desktop chat & code (Mac or Windows).
-    For Claude Code in a terminal <a href="#claude-code">see below</a>
+    <div>For claude.ai chat & code (online), Claude Desktop chat & code (Mac or Windows).
+    For Claude Code in a terminal <a href="#claude-code">see below</a></div>
   </div>
   <ol class="gs-steps">
-    <li class="gs-icon-cell"><img src="images/icon.svg" alt="" width="96" height="96"></li>
     <li><b><span class="gs-n">1</span>Get the file</b>
     <span class="gs-d"><a class="gs-dl" href="downloads/lyrics-and-chords.skill" download>
       Download lyrics-and-chords.skill</a>
