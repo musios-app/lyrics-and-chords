@@ -13,13 +13,49 @@ software:
   repo: https://github.com/musios-app/lyrics-and-chords
 ---
 
-<img src="images/icon.svg" alt="" class="float-end ms-3 mb-3" width="96" height="96">
-
 ## Lyrics & Chords Skill <span class="badge text-bg-warning ms-3">BETA</span> {#lyrics--chords-skill}
 
 The Lyrics & Chords skill for Claude reads song lyric and chord content with structure to help understand the lyrics.
 
 Send **Feedback** to [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@musios.app)
+
+<style>
+  .gs-start { border: 1px solid #e8e6dc; border-radius: 24px; background: #f8f8fa; padding: 24px 24px 18px; margin: 1.25rem 0 1.5rem; clear: both; }
+  .gs-note { color: #5d5a55; font-size: .85rem; margin-top: .6rem; padding-top: .5rem; border-top: 1px solid #e8e6dc; }
+  .gs-steps { display: grid; grid-template-columns: 96px repeat(3, 1fr); gap: 14px; margin: 18px 0 12px; padding: 0; list-style: none; }
+  .gs-intro { margin-left: 110px; }
+  .gs-dl-table th, .gs-dl-table td { padding: .35rem .75rem !important; }
+  .gs-title { display: block; color: #b83eaa; font-weight: 700; font-size: 1.2em; }
+  .gs-dl { color: #b83eaa !important; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
+  .gs-dl:hover { color: #9d3490 !important; text-decoration: underline; }
+  .gs-steps li { background: #fff; border: 1px solid #e8e6dc; border-radius: 16px; padding: 12px 14px; }
+  .gs-steps li.gs-icon-cell { background: none; border: 0; padding: 0; align-self: start; }
+  .gs-icon-cell img { display: block; width: 96px; height: 96px; }
+  .gs-n { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #b83eaa; color: #fff; font-weight: 700; font-size: .85rem; align-items: center; justify-content: center; margin-right: .5rem; }
+  .gs-steps b { display: block; margin-bottom: .45rem; line-height: 1.25; }
+  .gs-steps .gs-d { color: #5d5a55; font-size: .92rem; line-height: 1.25; }
+  .gs-steps .gs-p { display: block; margin-top: .7rem; }
+  .gs-steps .gs-p:first-child { margin-top: 0; }
+  @media (max-width: 760px) { .gs-intro { margin-left: 0; } .gs-start { padding: 18px 16px 14px; border-radius: 20px; } .gs-steps { grid-template-columns: 1fr; } .gs-steps li.gs-icon-cell { display: none; } }
+</style>
+<div class="gs-start">
+  <div class="gs-intro">
+    <b class="gs-title">Installation</b>
+    For claude.ai chat & code (online), Claude Desktop chat & code (Mac or Windows).
+    For Claude Code in a terminal <a href="#claude-code">see below</a>
+  </div>
+  <ol class="gs-steps">
+    <li class="gs-icon-cell"><img src="images/icon.svg" alt="" width="96" height="96"></li>
+    <li><b><span class="gs-n">1</span>Get the file</b>
+    <span class="gs-d"><a class="gs-dl" href="downloads/lyrics-and-chords.skill" download>
+      Download lyrics-and-chords.skill</a>
+    </span></li>
+    <li><b><span class="gs-n">2</span>Add the skill to Claude</b><span class="gs-d"><span class="gs-p">Customize &gt; Skills &gt; Add &gt; Upload skill</span><span class="gs-p">Drag and drop the download file</span></span></li>
+    <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new chat</span><span class="gs-p">Prompt Claude: <i>&ldquo;Load my lyrics&rdquo;</i></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
+  </ol>
+</div>
+
+## Features {#features}
 
 * Reads a wide range of lyric and chord formats
     * [ChordPro](examples/example-chordpro.html) - with thanks to [Martijn Versluis](https://github.com/martijnversluis) for the [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS) library
@@ -42,11 +78,9 @@ Send **Feedback** to [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@mus
 | --- | --- |
 | Claude | [lyrics-and-chords.skill](downloads/lyrics-and-chords.skill) (v{{version}}) |
 | Source code | [lyrics-and-chords-{{version}}-source.zip](downloads/lyrics-and-chords-{{version}}-source.zip) |
-{: .table .table-bordered .w-auto}
+{: .table .table-bordered .w-auto .gs-dl-table}
 
 ## Install, update, remove
-
-It needs **Node.js 18 or later** wherever the scripts run.
 
 ### claude.ai and the Claude Desktop (app)
 
@@ -55,6 +89,8 @@ It needs **Node.js 18 or later** wherever the scripts run.
 * **Remove:** Customize > Skills > "..." next to the toggle > Delete
 
 ### Claude Code
+
+It needs **Node.js 18 or later** on your computer.
 
 * **Install:** unzip `lyrics-and-chords.skill` into `~/.claude/skills/`, so that `~/.claude/skills/lyrics-and-chords/SKILL.md` exists
 * **Update:** replace the contents of `~/.claude/skills/lyrics-and-chords/` with the new version
