@@ -4,12 +4,20 @@ description: Loads song lyric and chord files (plain lyrics, chords above words,
 license: GPL-2.0-only
 compatibility: Requires Node.js 18 or later. Makes no network requests.
 metadata:
-  version: "0.1.3"
+  version: "0.1.4"
 ---
 
 # Lyrics & Chords (provisional)
 
 Version 0.1, provisional. The scripts under "What works now" are built; capabilities marked planned are not.
+
+## Which Node to use
+
+If you have a tool named `load_workspace_dependencies` (ChatGPT's desktop app), call it once at the start of the conversation and run every script with the Node.js path it returns, as `<that path> scripts/load.mjs …`. Do not use `node` from the command line, which may be a different version.
+
+If that tool is there but returns no Node.js path, stop. Say: "I can't find the app's bundled Node.js, so I can't load this song. Please send feedback to lyrics-and-chords@musios.app and say which version of the ChatGPT app you have." Do not read the song by hand instead.
+
+Without that tool (Claude), run the scripts with `node`.
 
 ## What works now
 
