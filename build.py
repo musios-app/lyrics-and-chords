@@ -9,7 +9,9 @@ What it does, in order:
   3. Copies the scripts, changing only the import of the library to point at that file.
   4. Copies SKILL.md and LICENSE, and writes NOTICE.txt (what is bundled, and where its source is).
   5. Zips the folder into a .skill file.
-  6. Runs the packaged scripts from a folder outside this repo, to prove the package stands alone.
+  6. Writes the ChatGPT plugin (plugins/lyrics-and-chords/) and its marketplace file (.agents/plugins/marketplace.json),
+     both committed, so the repository can be added in the ChatGPT app with "Add plugin marketplace".
+  7. Runs the packaged scripts from a folder outside this repo, to prove the package stands alone.
 
 Needs: Python 3, Node.js 18 or later, and `npm install` run once in this folder (for the bundler).
 On a Mac, dist/ is marked so that Dropbox does not sync it.
@@ -174,6 +176,46 @@ def smoke_test(archive):
     return True
 
 
+def write_chatgpt_plugin(folder, version):
+    """The ChatGPT app adds a marketplace from a GitHub repository; this makes the repository one."""
+    plugin = ROOT / "plugins" / "lyrics-and-chords"
+    if plugin.exists():
+        shutil.rmtree(plugin)
+    shutil.copytree(folder, plugin / "skills" / "lyrics-and-chords")
+    manifest = {
+        "name": "lyrics-and-chords",
+        "version": version,
+        "description": "Loads song lyric and chord files and checks that no word or chord was lost.",
+        "author": {"name": "Andrew Hunt (musios)", "url": "https://musios.app/"},
+        "homepage": "https://musios.app/projects/lyrics-and-chords/",
+        "license": "GPL-2.0-only",
+        "keywords": ["lyrics", "chords", "songwriting"],
+        "skills": "./skills/",
+        "interface": {
+            "displayName": "Lyrics & Chords",
+            "shortDescription": "Load song lyrics and chord sheets",
+            "category": "Productivity",
+            "developerName": "musios",
+            "websiteURL": "https://musios.app/projects/lyrics-and-chords/",
+            "defaultPrompt": ["Use the lyrics-and-chords skill to load my lyrics"],
+        },
+    }
+    (plugin / ".codex-plugin").mkdir(parents=True)
+    (plugin / ".codex-plugin" / "plugin.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf8")
+    marketplace = {
+        "name": "musios",
+        "interface": {"displayName": "musios"},
+        "plugins": [{
+            "name": "lyrics-and-chords",
+            "source": {"source": "local", "path": "./plugins/lyrics-and-chords"},
+            "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+            "category": "Productivity",
+        }],
+    }
+    (ROOT / ".agents" / "plugins").mkdir(parents=True, exist_ok=True)
+    (ROOT / ".agents" / "plugins" / "marketplace.json").write_text(json.dumps(marketplace, indent=2) + "\n", encoding="utf8")
+
+
 def keep_dist_out_of_dropbox():
     """On a Mac, ask Dropbox (the File Provider kind) not to sync dist/, which is generated.
     Harmless where Dropbox is not used. Only this repository's dist/ is touched."""
@@ -207,12 +249,14 @@ def main():
     archive = DIST / "lyrics-and-chords.skill"
     make_zip(folder, archive)
     smoke_test(archive)
+    write_chatgpt_plugin(folder, version)
 
     print(f"Built lyrics-and-chords {version} (ChordSheetJS {library_version})")
     for path in sorted(folder.rglob("*")):
         if path.is_file():
             print(f"  {str(path.relative_to(folder)):34} {path.stat().st_size:>9,} bytes")
     print(f"  {archive.relative_to(ROOT)}  {archive.stat().st_size:,} bytes")
+    print("ChatGPT plugin written to plugins/lyrics-and-chords/ and .agents/plugins/marketplace.json")
     print("Packaged scripts passed a test run outside this folder.")
 
 
