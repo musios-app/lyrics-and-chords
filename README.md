@@ -1,8 +1,10 @@
-<!-- Generated from site/lyrics-and-chords/page.md by build_readme.py. Edit that file, not this one. (checksum: 537df77ba2ef) -->
+<!-- Generated from site/lyrics-and-chords/page.md by build_readme.py. Edit that file, not this one. (checksum: 591c95587483) -->
 
 # Lyrics & Chords skill (Beta)
 
-The Lyrics & Chords skill for Claude reads song lyric and chord content with structure to help understand the lyrics.
+The Lyrics & Chords skill for Claude and ChatGPT reads song lyric and chord content with structure to help understand the lyrics.
+
+Contact [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@musios.app) for bugs, suggestions, and feedback.
 
 Slug: `lyrics-and-chords`. Licence: GPL-2.0-only (see `LICENSE`).
 
@@ -10,24 +12,32 @@ A skill that loads song lyric and chord files (plain lyrics, chords above words,
 
 Design notes: [docs/design-notes.md](docs/design-notes.md).
 
-Send **Feedback** to [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@musios.app)
 
-## Features
+## Formats
 
-* Reads a wide range of lyric and chord formats
-    * [ChordPro](https://musios.app/projects/lyrics-and-chords/examples/example-chordpro.html) - with thanks to [Martijn Versluis](https://github.com/martijnversluis) for the [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS) library
-    * [Genius.com](https://musios.app/projects/lyrics-and-chords/examples/example-genius.html)
-    * [Ultimate Guitar](https://musios.app/projects/lyrics-and-chords/examples/example-ultimate-guitar.html)
-    * [Bracket format](https://musios.app/projects/lyrics-and-chords/examples/example-bracket-format.html)
-    * [Unbracketed format](https://musios.app/projects/lyrics-and-chords/examples/example-unbracketed-format.html)
-    * [Plain text](https://musios.app/projects/lyrics-and-chords/examples/example-plain-text.html)
-    * [Chords above words](https://musios.app/projects/lyrics-and-chords/examples/example-chords-above-words.html)
-    * [Word documents](https://musios.app/projects/lyrics-and-chords/examples/example-word-documents.html)
-* Educational use for [genius.com](https://genius.com) and [ultimate-guitar.com](https://ultimate-guitar.com)
-* Identifies and corrects many (not all) common errors
+The skill reads a wide range of lyric and chord formats. It can identify and correct many (not all) common errors.
+
+* [ChordPro](https://musios.app/projects/lyrics-and-chords/examples/example-chordpro.html) - with thanks to [Martijn Versluis](https://github.com/martijnversluis) for the [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS) library
+* [Genius.com](https://musios.app/projects/lyrics-and-chords/examples/example-genius.html)
+* [Ultimate Guitar](https://musios.app/projects/lyrics-and-chords/examples/example-ultimate-guitar.html)
+* [Bracket format](https://musios.app/projects/lyrics-and-chords/examples/example-bracket-format.html)
+* [Unbracketed format](https://musios.app/projects/lyrics-and-chords/examples/example-unbracketed-format.html)
+* [Plain text](https://musios.app/projects/lyrics-and-chords/examples/example-plain-text.html)
+* [Chords above words](https://musios.app/projects/lyrics-and-chords/examples/example-chords-above-words.html)
+* [Word documents](https://musios.app/projects/lyrics-and-chords/examples/example-word-documents.html)
+
+
+## Other features
+
+* For sites with copyrighted content, such as [genius.com](https://genius.com) and [ultimate-guitar.com](https://ultimate-guitar.com), this skill is intended for Educational use only.
 * Returns a plain reading plus a JSON object (ChordSheetJS format) that captures the structure in the lyrics (see [Return JSON Object](#return-json-object))
-* This skill can be used with other skills, such the [Songwriting Coach](https://musios.app/projects/songwriting-coach/)
+* This skill can be used with other skills, such as the [Songwriting Coach](https://musios.app/projects/songwriting-coach/)
 * Source code available: it is this repository
+
+
+## Source
+
+The source code is this repository.
 
 ## Return JSON Object
 
@@ -58,36 +68,7 @@ Example JSON object:
 * `status` is `ok`, `needs-info` (loaded, but the title, the credits or the date is missing, and `questions` says what to ask) or `failed` (`problems` says why).
 * `song` is [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS)'s JSON: song facts as tag lines, sections as `start_of_...` and `end_of_...` tags, and each lyric line as a list of chord-and-lyric pairs.
 
-## Build and install
-
-```
-npm install            # once: fetches ChordSheetJS and the bundler
-npm test               # the tests (invented lyrics only)
-python3 build.py       # builds dist/lyrics-and-chords.skill
-```
-
-The build checks `SKILL.md` against the Agent Skills rules, bundles ChordSheetJS into one file so the skill needs no `npm install`, copies the scripts, writes `NOTICE.txt`, zips the folder, and then runs the packaged scripts from a folder outside this repo as a test. `dist/` is generated: never edit it by hand.
-
-The package needs only Node.js 18 or later. To install it:
-- **Claude Code:** unzip `dist/lyrics-and-chords.skill` into `~/.claude/skills/`, so that `~/.claude/skills/lyrics-and-chords/SKILL.md` exists.
-- **claude.ai:** upload the `.skill` file in Customize > Skills.
-
-## Publishing to musios.app
-
-Same pattern as the Songwriting Coach. `site/lyrics-and-chords/page.md` is the one source for this README and for the web page on musios.app. Text both need is written once; README-only text and page-only text are each fenced by a pair of HTML-comment markers named `readme` and `page` (the format is described at the top of `site/render_page.py`). Edit `page.md`, never `README.md`: the README is generated and carries a checksum, and the tests fail if it is out of date.
-
-```
-python3 build_readme.py            # write README.md from page.md
-python3 build_readme.py --check    # say whether README.md is up to date
-```
-
-After `python3 build.py` and a commit:
-
-```
-python3 publish_site.py                 # or --site PATH for a different clone of musios-app.github.io
-```
-
-This renders the page from `page.md` and copies it, the icon, the `.skill` (a current copy and a versioned one) and a source zip into `projects/lyrics-and-chords/` of the site clone. It refuses to run if the `.skill` is out of date or tracked files are uncommitted, and it never touches git in the site folder: review and push the site yourself. The source zip is made with `git archive`, because the GPL asks that anyone who receives the `.skill` can get the source.
+Building, testing and publishing: see [BUILD.md](BUILD.md).
 
 ## ChordSheetJS
 

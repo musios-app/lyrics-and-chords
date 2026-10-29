@@ -54,7 +54,7 @@ test("README-only text never appears in the page, and the two share their common
   assert.ok(!page.includes("build_readme.py"), "the README build is not mentioned on the page");
   const headings = (t) => t.split("\n").filter((l) => /^## /.test(l) && !l.includes("Lyrics & Chords Skill")).map((l) => l.replace(/ \{#[^}]*\}$/, ""));
   const shared = headings(render(SOURCE, "readme")).filter((h) => headings(page).includes(h));
-  for (const wanted of ["## Features", "## Return JSON Object", "## Licence and source"]) {
+  for (const wanted of ["## Formats", "## Other features", "## Return JSON Object", "## Licence and source"]) {
     assert.ok(shared.includes(wanted), `${wanted} is in both`);
   }
 });
