@@ -2,7 +2,7 @@
 ---
 layout: default
 title: "Lyrics & Chords Skill"
-description: Beta. A skill for Claude and the ChatGPT desktop app that reads song lyrics and chord sheets in many formats (ChordPro, Genius and Ultimate Guitar pages, plain text, chords above words, Word files), corrects many common errors, and returns a plain reading plus structured JSON. Works with the Songwriting Coach. Free software under the GPL.
+description: Beta. A skill for Claude and ChatGPT that reads song lyrics and chord sheets in many formats (ChordPro, Genius and Ultimate Guitar pages, plain text, chords above words, Word files), corrects many common errors, and returns a plain reading plus structured JSON. Works with the Songwriting Coach. Free software under the GPL.
 tagline: "BETA: Reads a wide range of song lyrics and chord file formats into Claude or ChatGPT."
 icon: images/icon.svg
 gitrepo: https://github.com/musios-app/lyrics-and-chords
