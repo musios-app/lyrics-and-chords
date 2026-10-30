@@ -1,8 +1,10 @@
-<!-- Generated from site/lyrics-and-chords/page.md by build_readme.py. Edit that file, not this one. (checksum: 591c95587483) -->
+<!-- Generated from site/lyrics-and-chords/page.md by build_readme.py. Edit that file, not this one. (checksum: 2b1f7a14fffa) -->
 
 # Lyrics & Chords skill (Beta)
 
-The Lyrics & Chords skill for Claude and ChatGPT reads song lyric and chord content with structure to help understand the lyrics.
+The Lyrics & Chords skill lets Claude and ChatGPT read the song sheets you already have, in many formats (ChordPro, Ultimate Guitar or Genius pages, plain text, chords above words, Word files). It finds the sections, keeps chords and lyrics aligned, and corrects common formatting errors. It is for songwriters, performers and music teachers who want to bring their charts into AI without worrying about formats and conversions.
+
+It may also be useful for developers who want songs as structured JSON data. It returns a plain reading and a structured JSON version, so the song can be reused, converted or passed to other tools. Your lyrics and chords go only to the Claude or ChatGPT chat you're already using.
 
 Contact [lyrics-and-chords@musios.app](mailto:lyrics-and-chords@musios.app) for bugs, suggestions, and feedback.
 
