@@ -93,8 +93,8 @@ The skill reads a wide range of lyric and chord formats. It can identify and cor
     <b class="gs-title">Installation for ChatGPT</b>
   </div>
   <ol class="gs-steps">
-    <li><b><span class="gs-n">1</span>Add the marketplace</b><span class="gs-d"><span class="gs-p">Open ChatGPT desktop app (Mac or Windows)</span><span class="gs-p">Plugins &gt; Add plugin marketplace</span><span class="gs-p">Source: <code>musios-app/lyrics-and-chords</code></span></span></li>
-    <li><b><span class="gs-n">2</span>Install the plugin</b><span class="gs-d"><span class="gs-p">Under <i>musios</i>, install <i>Lyrics &amp; Chords</i></span></span></li>
+    <li><b><span class="gs-n">1</span>Add the marketplace</b><span class="gs-d"><span class="gs-p">Open ChatGPT desktop app (Mac or Windows)</span><span class="gs-p">Plugins &gt; Add plugin marketplace</span><span class="gs-p">Source: <code>musios-app/musios-ai-plugins</code></span></span></li>
+    <li><b><span class="gs-n">2</span>Install the plugin</b><span class="gs-d"><span class="gs-p">Under <i>musios AI</i>, install <i>Lyrics &amp; Chords</i></span></span></li>
     <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new chat in <b style="display:inline">Work</b> mode (it works only there)</span><span class="gs-p">Prompt ChatGPT: <i>&ldquo;Use the lyrics-and-chords skill to load my lyrics&rdquo;</i></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
   </ol>
 </div>
@@ -139,8 +139,8 @@ It needs **Node.js 18 or later** on your computer.
 
 It works only in the desktop app's **Work** mode (plain Chat cannot use skills). It needs no Node.js of your own: it uses the one inside the app.
 
-* **Install:** see the steps above. The source is the GitHub repository `musios-app/lyrics-and-chords`
-* **Update:** in a ChatGPT Work session, type: *Update my Musios plugins to the latest versions*
+* **Install:** see the steps above. The plugin is installed from the GitHub repository `musios-app/musios-ai-plugins`
+* **Update:** in a ChatGPT Work session, type: *Update my musios AI plugins to the latest versions*
 * **Remove:** Plugins > Lyrics & Chords > Manage > Uninstall
 
 <!--[/page]-->

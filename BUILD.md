@@ -8,12 +8,12 @@ python3 build.py       # builds dist/lyrics-and-chords.skill
 
 The build checks `SKILL.md` against the Agent Skills rules, bundles ChordSheetJS into one file so the skill needs no `npm install`, copies the scripts, writes `NOTICE.txt`, zips the folder, and then runs the packaged scripts from a folder outside this repo as a test. `dist/` is generated: never edit it by hand.
 
-The same build also writes the ChatGPT plugin, so the ChatGPT app can add this repository with "Add plugin marketplace" (source `musios-app/lyrics-and-chords`):
+The same build also writes the ChatGPT plugin into your clone of `musios-app/musios-ai-plugins` (`--plugins PATH`, default `~/Dropbox/code/musios-app/musios-ai-plugins`), the repository the ChatGPT app adds with "Add plugin marketplace":
 
-- `plugins/lyrics-and-chords/` holds the plugin: `.codex-plugin/plugin.json` and a copy of the built skill in `skills/`.
-- `.agents/plugins/marketplace.json` lists that plugin under the marketplace name `musios`.
+- `plugins/lyrics-and-chords/` there holds the plugin: `.codex-plugin/plugin.json` and a copy of the built skill in `skills/`. It is generated: never edit it by hand.
+- `.agents/plugins/marketplace.json` there lists the plugins (this one and the Songwriting Coach). It is edited by hand in that repository; the build does not touch it.
 
-Both are generated and committed (the ChatGPT app installs from the repository, not from `dist/`): never edit them by hand. Rebuild and commit them with every release.
+The build never touches git. Commit and push `musios-ai-plugins` yourself with every release (the ChatGPT app installs from that repository, not from `dist/`).
 
 The package needs only Node.js 18 or later (ChatGPT uses the Node.js inside its app). To install it:
 - **ChatGPT desktop app:** see the install panel on the web page, or add this repository as a plugin marketplace.

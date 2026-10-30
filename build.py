@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the Lyrics & Chords skill: dist/lyrics-and-chords/ and dist/lyrics-and-chords.skill.
 
-Usage: python3 build.py
+Usage: python3 build.py [--plugins PATH]
 
 What it does, in order:
   1. Checks SKILL.md against the Agent Skills rules (name, description, size, version).
@@ -9,14 +9,16 @@ What it does, in order:
   3. Copies the scripts, changing only the import of the library to point at that file.
   4. Copies SKILL.md and LICENSE, and writes NOTICE.txt (what is bundled, and where its source is).
   5. Zips the folder into a .skill file.
-  6. Writes the ChatGPT plugin (plugins/lyrics-and-chords/) and its marketplace file (.agents/plugins/marketplace.json),
-     both committed, so the repository can be added in the ChatGPT app with "Add plugin marketplace".
+  6. Writes the ChatGPT plugin into your clone of musios-app/musios-ai-plugins (plugins/lyrics-and-chords/ there), the
+     repository the ChatGPT app adds with "Add plugin marketplace". Never touches git there. Its marketplace file lists
+     the plugins and is edited by hand in that repository.
   7. Runs the packaged scripts from a folder outside this repo, to prove the package stands alone.
 
 Needs: Python 3, Node.js 18 or later, and `npm install` run once in this folder (for the bundler).
 On a Mac, dist/ is marked so that Dropbox does not sync it.
 Python standard library only. Never edit dist/ by hand.
 """
+import argparse
 import json
 import re
 import shutil
@@ -28,6 +30,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
+DEFAULT_PLUGINS = Path.home() / "Dropbox/code/musios-app/musios-ai-plugins"
 LIBRARY_NAMES = [
     "ChordProParser", "ChordsOverWordsParser", "UltimateGuitarParser", "ChordSheetSerializer",
     "TextFormatter", "ChordProFormatter", "ChordsOverWordsFormatter",
@@ -176,9 +179,9 @@ def smoke_test(archive):
     return True
 
 
-def write_chatgpt_plugin(folder, version):
-    """The ChatGPT app adds a marketplace from a GitHub repository; this makes the repository one."""
-    plugin = ROOT / "plugins" / "lyrics-and-chords"
+def write_chatgpt_plugin(folder, version, plugins_repo):
+    """The ChatGPT app adds a marketplace from a GitHub repository: musios-ai-plugins. This writes the plugin into a clone of it."""
+    plugin = plugins_repo / "plugins" / "lyrics-and-chords"
     # Update the files where they are, rather than deleting the folder and copying it again: Dropbox makes
     # "conflicted copies" of files that are deleted and recreated while it syncs.
     target = plugin / "skills" / "lyrics-and-chords"
@@ -214,18 +217,6 @@ def write_chatgpt_plugin(folder, version):
     }
     (plugin / ".codex-plugin").mkdir(parents=True, exist_ok=True)
     (plugin / ".codex-plugin" / "plugin.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf8")
-    marketplace = {
-        "name": "musios",
-        "interface": {"displayName": "musios"},
-        "plugins": [{
-            "name": "lyrics-and-chords",
-            "source": {"source": "local", "path": "./plugins/lyrics-and-chords"},
-            "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
-            "category": "Productivity",
-        }],
-    }
-    (ROOT / ".agents" / "plugins").mkdir(parents=True, exist_ok=True)
-    (ROOT / ".agents" / "plugins" / "marketplace.json").write_text(json.dumps(marketplace, indent=2) + "\n", encoding="utf8")
 
 
 def keep_dist_out_of_dropbox():
@@ -236,6 +227,11 @@ def keep_dist_out_of_dropbox():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Build the Lyrics & Chords skill.")
+    parser.add_argument("--plugins", type=Path, default=DEFAULT_PLUGINS, help="your clone of musios-app/musios-ai-plugins")
+    args = parser.parse_args()
+    if not (args.plugins / ".agents" / "plugins" / "marketplace.json").is_file():
+        stop(f"{args.plugins} doesn't look like musios-ai-plugins (no .agents/plugins/marketplace.json). Use --plugins to point at it.")
     package = json.loads((ROOT / "package.json").read_text(encoding="utf8"))
     version = package["version"]
     check_skill(version)
@@ -261,14 +257,14 @@ def main():
     archive = DIST / "lyrics-and-chords.skill"
     make_zip(folder, archive)
     smoke_test(archive)
-    write_chatgpt_plugin(folder, version)
+    write_chatgpt_plugin(folder, version, args.plugins)
 
     print(f"Built lyrics-and-chords {version} (ChordSheetJS {library_version})")
     for path in sorted(folder.rglob("*")):
         if path.is_file():
             print(f"  {str(path.relative_to(folder)):34} {path.stat().st_size:>9,} bytes")
     print(f"  {archive.relative_to(ROOT)}  {archive.stat().st_size:,} bytes")
-    print("ChatGPT plugin written to plugins/lyrics-and-chords/ and .agents/plugins/marketplace.json")
+    print(f"ChatGPT plugin written to {args.plugins}/plugins/lyrics-and-chords/ (nothing committed there)")
     print("Packaged scripts passed a test run outside this folder.")
 
 
