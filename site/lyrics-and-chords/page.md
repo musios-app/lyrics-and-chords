@@ -140,8 +140,8 @@ It needs **Node.js 18 or later** on your computer.
 It works only in the desktop app's **Work** mode (plain Chat cannot use skills). It needs no Node.js of your own: it uses the one inside the app.
 
 * **Install:** see the steps above. The source is the GitHub repository `musios-app/lyrics-and-chords`
-* **Update:** in Plugins, update the *musios* marketplace, then the plugin
-* **Remove:** in Plugins, uninstall *Lyrics & Chords*, then remove the *musios* marketplace
+* **Update:** in a ChatGPT Work session, type: *Update my Musios plugins to the latest versions*
+* **Remove:** Plugins > Lyrics & Chords > Manage > Uninstall
 
 <!--[/page]-->
 ## Return JSON Object<!--[page]--> {#return-json-object}<!--[/page]-->
