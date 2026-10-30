@@ -618,3 +618,55 @@ test("a missing line is quoted in its message with the line number", () => {
   assert.match(missing.message, /^Line 2, "\| F C\/F \| Dmin\/F C \/F \| x2", was left out of the result\./);
   assert.match(missing.message, /Look at the line for anything unusual/);
 });
+
+// A chord chart in front of the lyrics (invented samples in tests/samples/charts/).
+const chartSample = (name) => fileURLToPath(new URL(`./samples/charts/${name}`, import.meta.url));
+
+test("a Chords heading, chord rows and a Lyrics heading make a chart that is set aside, with line numbers kept", () => {
+  const { code, result } = load(chartSample("chart-with-headings.txt"));
+  assert.equal(code, 0);
+  assert.deepEqual([result.chart.from, result.chart.to], [3, 9]);
+  assert.ok(result.chart.text.includes("| Am") && result.chart.text.includes("2x repeat"));
+  assert.ok(result.setAside.some((l) => l.startsWith("lines 3-9")));
+  assert.ok(result.notes.some((n) => n.includes("lines 3-9 are a chord chart")));
+  assert.deepEqual(lyricLinesOf(result.song).slice(-2), ["Some invented words here", "Another invented line"]);
+  assert.ok(!lyricLinesOf(result.song).some((t) => /Chart|VERSES|repeat|Lyrics$/.test(t)), "no chart text is left in the lyrics");
+  assert.ok(!result.questions.some((q) => /chord chart/.test(q)), "a clear chart is not asked about");
+});
+
+test("a Chords heading with no Lyrics heading after it leaves the song as the readers get it", () => {
+  const { result } = load(chartSample("chords-heading-only.txt"));
+  assert.equal(result.chart, undefined);
+  assert.ok(!result.questions.some((q) => /chord chart/.test(q)));
+});
+
+test("four chord rows before any lyric, with no headings, are asked about and nothing is changed", () => {
+  const { result } = load(chartSample("chart-no-headings.txt"));
+  assert.equal(result.chart, undefined);
+  assert.equal(result.status, "needs-info");
+  assert.ok(result.questions[0].startsWith("Lines 3 to 6 look like a chord chart"));
+  assert.ok(result.song.lines.some((l) => l.items.some((x) => x.chords === "Dm")), "the chords are still in the song");
+});
+
+test("--chart sets the lines aside as a chart, and --keep-chart keeps them and does not ask", () => {
+  const set = load(chartSample("chart-no-headings.txt"), "--chart", "3-6").result;
+  assert.deepEqual([set.chart.from, set.chart.to], [3, 6]);
+  assert.ok(!set.questions.some((q) => /chord chart/.test(q)));
+  assert.ok(!set.song.lines.some((l) => l.items.some((x) => x.chords === "Dm")));
+  const kept = load(chartSample("chart-no-headings.txt"), "--keep-chart").result;
+  assert.equal(kept.chart, undefined);
+  assert.ok(!kept.questions.some((q) => /chord chart/.test(q)));
+});
+
+test("--chart must be a range of line numbers", () => {
+  const r = run("load.mjs", [chartSample("chart-no-headings.txt"), "--chart", "x"]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /--chart must be a range/);
+});
+
+test("a chord-only intro that sits among lyrics is not mistaken for a chart", () => {
+  const text = ["Invented Song", "", "[Intro]", "| Am | F |", "| C | G |", "", "[Verse 1]", "Some invented words here today", "| Am | F |", "More invented words go here"].join("\n");
+  const { result } = load(file("intro-among-lyrics.txt", text));
+  assert.equal(result.chart, undefined);
+  assert.ok(!result.questions.some((q) => /chord chart/.test(q)));
+});

@@ -12,6 +12,7 @@ import { tmpdir, homedir } from "node:os";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseLineList } from "./lyric-lines.mjs";
+import { findChart, blankLines } from "./chart-block.mjs";
 
 const args = process.argv.slice(2);
 if (args.includes("--help") || args.includes("-h")) {
@@ -25,6 +26,8 @@ deleted text and formatting are ignored. Everything runs locally; nothing is fet
 Options:
   --facts FILE      JSON file of song facts (title, artist, lyricist, composer, date, ... see add-metadata.mjs).
   --set-aside LIST  Original line numbers that are not lyrics (a title, a credit line), such as 1,2.
+  --chart FROM-TO   Lines that are a chord chart, not lyrics, such as 10-28. They are set aside and given as "chart".
+  --keep-chart      Do not look for a chord chart, and do not ask about one.
   --format NAME     Force the reader: chordpro, chords-over-words, ultimate-guitar or lyrics-only.
   --as NAME         Also write the song out: text, chordpro, chords-over-words or lyrics-only.
   --output FILE     With --as, save the written song to FILE instead of putting it in the result.
@@ -43,9 +46,15 @@ Result (JSON on standard output):
   problems   why it failed (parse or check problems), or empty
   notes      what the reader repaired or noticed
   setAside   the lines set aside, if any
+  chart      a chord chart found in front of the lyrics: its first and last line and its text (see below)
   song       the loaded song (not given when status is "failed")
   output     the written song, when --as is given without --output
   savedTo    the file written by --save
+
+A chord chart in front of the lyrics (a "Chords" or "Chart" heading, bar lines, notes such as "2x repeat",
+then a "Lyrics" heading) is set aside on its own and given in "chart", with the line numbers kept. When four or
+more chord-only rows come before any lyric line and there are no such headings, nothing is changed and a
+question asks the writer: answer it with --chart FROM-TO (set them aside) or --keep-chart (keep them).
 
 Exit codes: 0 loaded; 1 failed; 2 bad option.`);
   process.exit(0);
@@ -63,7 +72,7 @@ const saveFolder = (name) => {
   if (name === "~") return home;
   return /^~[\\/]/.test(name) ? join(home, name.slice(2)) : name;
 };
-const flagsWithValue = ["--facts", "--set-aside", "--format", "--as", "--output", "--save"];
+const flagsWithValue = ["--facts", "--set-aside", "--chart", "--format", "--as", "--output", "--save"];
 const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && flagsWithValue.includes(args[i - 1])));
 
 if (positional.length !== 1) {
@@ -86,6 +95,13 @@ if (value("--output") && !asValue) {
 const setAsideList = value("--set-aside");
 if (setAsideList && !parseLineList(setAsideList)) {
   console.error(`Error: --set-aside must be line numbers such as 1,2 or 1-3,7. Received: "${setAsideList}"`);
+  process.exit(2);
+}
+
+const chartLines = value("--chart");
+const chartRange = chartLines && chartLines.match(/^(\d+)-(\d+)$/);
+if (chartLines && (!chartRange || Number(chartRange[1]) < 1 || Number(chartRange[2]) < Number(chartRange[1]))) {
+  console.error(`Error: --chart must be a range of line numbers such as 10-28. Received: "${chartLines}"`);
   process.exit(2);
 }
 
@@ -170,6 +186,25 @@ try {
     result.notes.push(...read.notes);
   }
 
+  // 0b. A chord chart in front of the lyrics is not part of the song. Its lines are blanked in a copy of the text,
+  // so every other line keeps its number, and the chart is given as its own part of the result.
+  if (!args.includes("--keep-chart")) {
+    const text = readFileSync(original, "utf8");
+    const found = findChart(text);
+    const block = chartRange ? { from: Number(chartRange[1]), to: Number(chartRange[2]) } : found.block;
+    if (block) {
+      const copy = text.replace(/\r\n?/g, "\n").split("\n");
+      result.chart = { from: block.from, to: block.to, text: copy.slice(block.from - 1, block.to).join("\n") };
+      result.setAside.push(`lines ${block.from}-${block.to}: a chord chart, kept in "chart"`);
+      result.notes.push(`note: lines ${block.from}-${block.to} are a chord chart; they were set aside, and the lyrics start after them`);
+      tempDir = tempDir || mkdtempSync(join(tmpdir(), "lyrics-and-chords-"));
+      original = join(tempDir, "without-chart.txt");
+      writeFileSync(original, blankLines(text, block.from, block.to));
+    } else if (found.ask) {
+      result.questions.push(`Lines ${found.ask.from} to ${found.ask.to} look like a chord chart, not lyrics. Should I set them aside, or keep them as part of the song?`);
+    }
+  }
+
   // 1. Read the sheet.
   const readerFormat = value("--format");
   const parsed = run("parse.mjs", [original, ...(readerFormat ? ["--format", readerFormat] : [])]);
@@ -219,7 +254,7 @@ try {
       result.questions.push(question);
     }
   }
-  result.status = result.missing.length ? "needs-info" : "ok";
+  result.status = result.questions.length ? "needs-info" : "ok";
   result.song = songJson;
 
   // 6. Write the song out, if asked.

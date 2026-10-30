@@ -179,9 +179,21 @@ def smoke_test(archive):
 def write_chatgpt_plugin(folder, version):
     """The ChatGPT app adds a marketplace from a GitHub repository; this makes the repository one."""
     plugin = ROOT / "plugins" / "lyrics-and-chords"
-    if plugin.exists():
-        shutil.rmtree(plugin)
-    shutil.copytree(folder, plugin / "skills" / "lyrics-and-chords")
+    # Update the files where they are, rather than deleting the folder and copying it again: Dropbox makes
+    # "conflicted copies" of files that are deleted and recreated while it syncs.
+    target = plugin / "skills" / "lyrics-and-chords"
+    wanted = {path.relative_to(folder) for path in folder.rglob("*") if path.is_file()}
+    if target.exists():
+        for path in sorted(target.rglob("*"), reverse=True):
+            if path.is_file() and path.relative_to(target) not in wanted:
+                path.unlink()
+            elif path.is_dir() and not any(path.iterdir()):
+                path.rmdir()
+    for relative in sorted(wanted):
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if not destination.exists() or destination.read_bytes() != (folder / relative).read_bytes():
+            shutil.copyfile(folder / relative, destination)
     manifest = {
         "name": "lyrics-and-chords",
         "version": version,
@@ -200,7 +212,7 @@ def write_chatgpt_plugin(folder, version):
             "defaultPrompt": ["Use the lyrics-and-chords skill to load my lyrics"],
         },
     }
-    (plugin / ".codex-plugin").mkdir(parents=True)
+    (plugin / ".codex-plugin").mkdir(parents=True, exist_ok=True)
     (plugin / ".codex-plugin" / "plugin.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf8")
     marketplace = {
         "name": "musios",
