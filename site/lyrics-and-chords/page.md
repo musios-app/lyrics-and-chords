@@ -14,7 +14,7 @@ software:
   repo: https://github.com/musios-app/lyrics-and-chords
 ---
 
-## Lyrics & Chords Skill <span class="badge text-bg-warning ms-3">BETA</span> {#lyrics--chords-skill}
+## Lyrics & Chords Skill for Claude and ChatGPT <span class="badge text-bg-warning ms-3">BETA</span> {#lyrics--chords-skill}
 
 <!--[/page]-->
 <!--[readme]-->
@@ -51,53 +51,74 @@ The skill reads a wide range of lyric and chord formats. It can identify and cor
 
 <!--[page]-->
 <style>
-  .gs-start { position: relative; border: 1px solid #e8e6dc; border-radius: 24px; background: #f8f8fa; padding: 16px 20px 10px; margin: 1rem 0 1rem; clear: both; }
+  .gs-start { position: relative; border: 1px solid #e8e6dc; border-radius: 24px; background: #f8f8fa; padding: 10px 14px 6px; margin: 2rem 0 2rem; clear: both; }
   .gs-note { color: #5d5a55; font-size: .85rem; margin-top: .6rem; padding-top: .5rem; border-top: 1px solid #e8e6dc; }
-  .gs-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 10px 0 8px; padding: 0; list-style: none; }
-  .gs-intro { margin-right: 80px; min-height: 67px; display: flex; flex-direction: column; justify-content: center; }
+  .gs-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 6px; padding: 0; list-style: none; }
+  .gs-intro { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 0 8px; }
   .gs-intro > div { line-height: 1.25; }
-  .gs-title { display: block; color: var(--gs-text, #b83eaa); font-weight: 700; font-size: 1.2em; line-height: 1.25; }
+  .gs-title { display: block; color: var(--gs-text, #b83eaa); font-weight: 700; font-size: 1.1em; line-height: 1.25; }
   .gs-dl-table th, .gs-dl-table td { padding: .35rem .75rem !important; }
   .gs-dl { color: var(--gs-text, #b83eaa) !important; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
   .gs-dl:hover { color: var(--gs-hover, #9d3490) !important; text-decoration: underline; }
-  .gs-steps li { background: #fff; border: 1px solid #e8e6dc; border-radius: 16px; padding: 12px 14px; }
-  .gs-icon { position: absolute; top: 16px; right: 20px; width: 67px; height: 67px; }
+  .gs-steps li { background: #fff; border: 1px solid #e8e6dc; border-radius: 14px; padding: 8px 11px; }
+  .gs-icon { display: none; flex: none; width: 40px; height: 40px; } /* logos hidden for now: delete display:none to show them */
   .gs-n { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: var(--gs-accent, #b83eaa); color: #fff; font-weight: 700; font-size: .85rem; align-items: center; justify-content: center; margin-right: .5rem; }
-  .gs-claude, .gs-chatgpt { border-color: var(--gs-accent); border-width: 2px; }
-  .gs-claude .gs-steps li, .gs-chatgpt .gs-steps li { border-color: rgba(var(--gs-rgb), .75); border-width: 1px; }
+  .gs-claude, .gs-chatgpt { border-color: rgba(var(--gs-rgb), .55); border-width: 1px; }
+  .gs-claude .gs-steps li, .gs-chatgpt .gs-steps li { border-color: rgba(var(--gs-rgb), .4); border-width: 1px; }
   .gs-claude { --gs-accent: #d97757; --gs-rgb: 217, 119, 87; --gs-text: #b85c3e; --gs-hover: #9a4a30; }
   .gs-chatgpt { --gs-accent: #74aa9c; --gs-rgb: 116, 170, 156; --gs-text: #4f8b7b; --gs-hover: #3b6e60; }
-  .gs-chatgpt code { color: var(--gs-text); }
+  .gs-chatgpt code, .gs-claude code { color: var(--gs-text); }
+  .gs-copy { display: inline-flex; align-items: center; margin-left: .2rem; padding: 3px; vertical-align: middle; color: var(--gs-text); background: none; border: 0; border-radius: 6px; cursor: pointer; }
+  .gs-copy:hover, .gs-copy:focus-visible { background: rgba(var(--gs-rgb), .18); }
   .gs-steps b { display: block; margin-bottom: .45rem; line-height: 1.25; }
   .gs-steps .gs-d { color: #5d5a55; font-size: .92rem; line-height: 1.25; }
   .gs-steps .gs-p { display: block; margin-top: .7rem; }
   .gs-steps .gs-p:first-child { margin-top: 0; }
-  @media (max-width: 760px) { .gs-intro { display: block; margin-right: 0; min-height: 0; } .gs-start { padding: 18px 16px 14px; border-radius: 20px; } .gs-steps { grid-template-columns: 1fr; } .gs-icon { display: none; } }
+  @media (max-width: 760px) { .gs-start { padding: 14px 12px 10px; border-radius: 20px; } .gs-steps { grid-template-columns: 1fr; } }
 </style>
+<script>
+document.addEventListener("click", function (event) {
+  var button = event.target.closest(".gs-copy");
+  if (!button) return;
+  var text = button.getAttribute("data-copy");
+  var label = button.innerHTML;
+  function done() { button.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>'; setTimeout(function () { button.innerHTML = label; }, 1500); }
+  function fallback() {
+    var box = document.createElement("textarea");
+    box.value = text;
+    document.body.appendChild(box);
+    box.select();
+    try { document.execCommand("copy"); done(); } catch (problem) {}
+    document.body.removeChild(box);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+});
+</script>
 <div class="gs-start gs-claude">
-  <img class="gs-icon" src="images/claude-icon.svg" alt="Claude" width="67" height="67">
   <div class="gs-intro">
+    <img class="gs-icon" src="images/claude-icon.svg" alt="Claude" width="40" height="40">
     <b class="gs-title">Installation for Claude</b>
   </div>
   <ol class="gs-steps">
-    <li><b><span class="gs-n">1</span>Get the file</b>
+    <li><b><span class="gs-n">1</span>Download the file</b>
     <span class="gs-d"><a class="gs-dl" href="downloads/lyrics-and-chords.skill" download>
       Download lyrics-and-chords.skill</a>
     </span></li>
-    <li><b><span class="gs-n">2</span>Add the skill to Claude</b><span class="gs-d"><span class="gs-p">Open claude.ai<br/>Or open Claude Desktop app (Mac or Windows)</span><span class="gs-p">Customize &gt; Skills &gt; Add &gt; Upload skill</span><span class="gs-p">Drag and drop the download file</span></span></li>
-    <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new Chat or Code session</span><span class="gs-p">Prompt Claude: <i>&ldquo;Load my lyrics&rdquo;</i></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
+    <li><b><span class="gs-n">2</span>Add the skill to Claude</b><span class="gs-d"><span class="gs-p">Open claude.ai<br/>Or open Claude Desktop app (Mac or Windows)</span><span class="gs-p">Customize &gt; Skills &gt; Add &gt; Upload skill</span><span class="gs-p">Drag and drop the file then Upload</span></span></li>
+    <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new Chat or Code session</span><span class="gs-p">Prompt Claude: <code>Load my lyrics</code> <button type="button" class="gs-copy" data-copy="Load my lyrics" aria-label="Copy Load my lyrics" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></button></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
   </ol>
 </div>
 
 <div class="gs-start gs-chatgpt" id="chatgpt-install">
-  <img class="gs-icon" src="images/chatgpt-logo.svg" alt="ChatGPT" width="67" height="67">
   <div class="gs-intro">
+    <img class="gs-icon" src="images/chatgpt-logo.svg" alt="ChatGPT" width="40" height="40">
     <b class="gs-title">Installation for ChatGPT</b>
   </div>
   <ol class="gs-steps">
-    <li><b><span class="gs-n">1</span>Add the marketplace</b><span class="gs-d"><span class="gs-p">Open ChatGPT desktop app (Mac or Windows)</span><span class="gs-p">Plugins &gt; Add plugin marketplace</span><span class="gs-p">Source: <code>musios-app/musios-ai-plugins</code></span></span></li>
-    <li><b><span class="gs-n">2</span>Install the plugin</b><span class="gs-d"><span class="gs-p">Under <i>musios AI</i>, install <i>Lyrics &amp; Chords</i></span></span></li>
-    <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new chat in <b style="display:inline">Work</b> mode (it works only there)</span><span class="gs-p">Prompt ChatGPT: <i>&ldquo;Use the lyrics-and-chords skill to load my lyrics&rdquo;</i></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
+    <li><b><span class="gs-n">1</span>Add the marketplace</b><span class="gs-d"><span class="gs-p">Open ChatGPT desktop app (Mac or Windows)</span><span class="gs-p">Plugins &gt; Add plugin marketplace</span><span class="gs-p">Source: <code>musios-app/musios-ai-plugins</code> <button type="button" class="gs-copy" data-copy="musios-app/musios-ai-plugins" aria-label="Copy musios-app/musios-ai-plugins" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></button></span><span class="gs-p">Leave the other boxes empty</span><span class="gs-p">Click <i>Add marketplace</i></span></span></li>
+    <li><b><span class="gs-n">2</span>Install the plugin</b><span class="gs-d"><span class="gs-p">Plugins &gt; Personal &gt; <i>musios AI</i></span><span class="gs-p">Click <i>Lyrics &amp; Chords</i> then <i>Install</i></span></span></li>
+    <li><b><span class="gs-n">3</span>Load a song</b><span class="gs-d"><span class="gs-p">Open a new chat in <b style="display:inline">Work</b> mode (it works only there)</span><span class="gs-p">Prompt ChatGPT: <code>Use the lyrics-and-chords skill to load my lyrics</code> <button type="button" class="gs-copy" data-copy="Use the lyrics-and-chords skill to load my lyrics" aria-label="Copy Use the lyrics-and-chords skill to load my lyrics" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></button></span><span class="gs-p">Paste your lyrics and/or chords or drop their file</span></span></li>
   </ol>
 </div>
 
