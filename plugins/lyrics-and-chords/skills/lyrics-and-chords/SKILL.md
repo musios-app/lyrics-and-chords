@@ -4,7 +4,7 @@ description: Loads song lyric and chord files (plain lyrics, chords above words,
 license: GPL-2.0-only
 compatibility: Requires Node.js 18 or later. Makes no network requests.
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # Lyrics & Chords (provisional)
