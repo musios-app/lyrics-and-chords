@@ -2,7 +2,10 @@
 ---
 layout: default
 title: "Lyrics & Chords Skill"
-description: Beta. A skill for Claude and ChatGPT that reads song lyrics and chord sheets in many formats (ChordPro, Genius and Ultimate Guitar pages, plain text, chords above words, Word files), corrects many common errors, and returns a plain reading plus structured JSON. Works with the Songwriting Coach. Free software under the GPL.
+description: |-
+  Beta. The Lyrics & Chords skill lets Claude and ChatGPT read the song sheets you already have, in many formats (ChordPro, Ultimate Guitar or Genius pages, plain text, chords above words, Word files). It finds the sections, keeps chords and lyrics aligned, and corrects common formatting errors. It is for songwriters, performers and music teachers who want to bring their charts into AI without worrying about formats and conversions.
+
+  It may also be useful for developers who want songs as structured JSON data. It returns a plain reading and a structured JSON version, so the song can be reused, converted or passed to other tools. Your lyrics and chords go only to the Claude or ChatGPT chat you're already using.
 tagline: "BETA: Reads a wide range of song lyrics and chord file formats into Claude or ChatGPT."
 icon: images/icon.svg
 gitrepo: https://github.com/musios-app/lyrics-and-chords
