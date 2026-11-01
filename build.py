@@ -7,7 +7,7 @@ What it does, in order:
   1. Checks SKILL.md against the Agent Skills rules (name, description, size, version).
   2. Bundles ChordSheetJS into one file, scripts/lib/chordsheetjs.mjs, so the skill needs no npm install.
   3. Copies the scripts, changing only the import of the library to point at that file.
-  4. Copies SKILL.md and LICENSE, and writes NOTICE.txt (what is bundled, and where its source is).
+  4. Fills the {{title}} and {{version}} placeholders in SKILL.md as it copies it, copies LICENSE, and writes NOTICE.txt (what is bundled, and where its source is).
   5. Zips the folder into a .skill file.
   6. Writes the ChatGPT plugin into your clone of musios-app/musios-ai-plugins (plugins/lyrics-and-chords/ there), the
      repository the ChatGPT app adds with "Add plugin marketplace". Never touches git there. Its marketplace file lists
@@ -36,6 +36,7 @@ LIBRARY_NAMES = [
     "TextFormatter", "ChordProFormatter", "ChordsOverWordsFormatter",
 ]
 SKILL_DIRECTORY_FILES = ["SKILL.md", "LICENSE", "NOTICE.txt", "scripts"]
+TITLE = "Lyrics & Chords"
 
 
 def stop(message):
@@ -80,6 +81,19 @@ def check_skill(version):
     referenced = re.findall(r"`((?:docs|tests)/[^`]*)`", text)
     if referenced:
         stop(f"SKILL.md points at files that are not in the package: {', '.join(referenced)}")
+    return text
+
+
+def filled_skill_text():
+    """SKILL.md as it is packaged: {{title}}, {{title_upper}} and {{version}} filled in (the text never types them)."""
+    version = json.loads((ROOT / "package.json").read_text(encoding="utf8"))["version"]
+    values = {"title": TITLE, "title_upper": TITLE.upper(), "version": version}
+    text = (ROOT / "SKILL.md").read_text(encoding="utf8")
+    for name, value in values.items():
+        text = text.replace("{{" + name + "}}", value)
+    left = sorted(set(re.findall(r"\{\{[^}]*\}\}", text)))
+    if left:
+        stop(f"SKILL.md has placeholders with no value: {', '.join(left)}. The known ones are {', '.join('{{' + n + '}}' for n in values)}.")
     return text
 
 
@@ -249,7 +263,7 @@ def main():
     if sorted(rewritten) != ["format.mjs", "parse.mjs"]:
         stop(f"expected parse.mjs and format.mjs to import the library, found: {rewritten}")
 
-    shutil.copy(ROOT / "SKILL.md", folder / "SKILL.md")
+    (folder / "SKILL.md").write_text(filled_skill_text(), encoding="utf8")
     shutil.copy(ROOT / "LICENSE", folder / "LICENSE")
     library_version = json.loads((ROOT / "node_modules" / "chordsheetjs" / "package.json").read_text(encoding="utf8"))["version"]
     (folder / "NOTICE.txt").write_text(write_notice(version, library_version), encoding="utf8")

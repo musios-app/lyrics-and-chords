@@ -7,9 +7,9 @@ metadata:
   version: "0.1.5"
 ---
 
-# Lyrics & Chords (provisional)
+# {{title}}
 
-Version 0.1, provisional. The scripts under "What works now" are built; capabilities marked planned are not.
+*(v{{version}})* The scripts under "What works now" are built; capabilities marked planned are not.
 
 ## Which Node to use
 

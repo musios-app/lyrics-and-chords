@@ -26,6 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "site"))
+import build  # noqa: E402  (the same folder; its filled_skill_text() says what the packaged SKILL.md should be)
 import render_page  # noqa: E402  (site/ is not a package)
 PAGE = ROOT / "site" / "lyrics-and-chords" / "page.md"  # the one source for the page and the README (see render_page.py)
 SKILL_FILE = ROOT / "dist" / "lyrics-and-chords.skill"
@@ -57,7 +58,7 @@ def check_skill_is_current(version):
     built = built.group(1).decode() if built else None
     if built != version:
         stop(f"the built .skill is version {built}, but package.json says {version}. Run: python3 build.py")
-    if packaged != (ROOT / "SKILL.md").read_bytes():
+    if packaged != build.filled_skill_text().encode("utf8"):
         stop("the built .skill is out of date: its SKILL.md differs from SKILL.md. Run: python3 build.py")
     newest_source = max(p.stat().st_mtime for p in (ROOT / "scripts").glob("*.mjs"))
     if SKILL_FILE.stat().st_mtime < newest_source:
