@@ -11,6 +11,10 @@ metadata:
 
 *(v{{version}})* The scripts under "What works now" are built; capabilities marked planned are not.
 
+## Opening
+
+If the writer has not given a song yet, say: "The {{title}} skill (v{{version}}) is loaded, but I don't have a song to load yet." Then wait.
+
 ## Which Node to use
 
 If you have a tool named `load_workspace_dependencies` (ChatGPT's desktop app), call it once at the start of the conversation and run every script with the Node.js path it returns, as `<that path> scripts/load.mjs …`. Do not use `node` from the command line, which may be a different version.
